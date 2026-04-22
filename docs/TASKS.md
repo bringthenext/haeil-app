@@ -10,17 +10,17 @@
 | ID | 내용 | 상태 |
 |---|---|---|
 | T01 | 인증 | ✅ 완료 |
-| T02 | Inbox — Item 추가 (핵심) | 🔲 |
-| T03 | Inbox — Item 분류 (Envelope로) | 🔲 |
-| T04 | Inbox — 완료 탭 | 🔲 |
-| T05 | Papers — Envelope 관리 | 🔲 |
-| T06 | Papers — Draft Card (Envelope 내) | 🔲 |
-| T07 | Papers — Paper 완료 (Wave 생성) (핵심) | 🔲 |
-| T08 | Papers — 완료 탭 & 즐겨찾기 | 🔲 |
-| T09 | 새 Wave (즐겨찾기 복제) | 🔲 |
+| T02 | Inbox — Item 추가 (핵심) | ✅ 완료 |
+| T03 | Inbox — Item 분류 (Envelope로) | 🔜 다음 |
+| T04 | Inbox — 완료 탭 | ✅ 완료 |
+| T05 | Papers — Envelope 관리 | 🔜 다음 |
+| T06 | Papers — Draft Card 완료 (오늘날짜 rename + wave) | ✅ 완료 |
+| T07 | Papers — Paper 완료 (Wave 생성) (핵심) | ✅ 완료 |
+| T08 | Papers — 완료 탭 & 즐겨찾기 | ✅ 완료 |
+| T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🔲 |
-| T11 | Me — Dashboard | 🔲 |
-| T12 | 네비게이션 & 공통 | ✅ 완료 |
+| T11 | Me — Dashboard & Challenges | 🔲 |
+| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🔲 |
 
 ---
 
@@ -148,11 +148,13 @@
 
 ---
 
-### T12. 네비게이션 & 공통 ✅
+### T12. 반응형 테스트 · RLS 검증 · softDelete 등 마무리
 
 | # | 시나리오 | 검증 포인트 |
 | --- | --- | --- |
-| T12-1 | 하단 탭 4개 전환 | inbox / papers / schedule / me 정상 전환 |
-| T12-2 | max-width 430px | 모바일 레이아웃 유지 |
-| T12-3 | 모든 쿼리에 `user_id` 포함 | RLS 통과 여부 |
-| T12-4 | 소프트 삭제 | 삭제 시 `deleted_at` 설정, 목록에서 제외 |
+| T12-1 | 모바일 레이아웃 (< 768px) | 하단 탭바, 단일 컬럼, 콘텐츠 넘침 없음 |
+| T12-2 | 태블릿 레이아웃 (≥ 768px) | 좌측 사이드바(w-44) + 콘텐츠 영역 전환 확인 |
+| T12-3 | 맥 레이아웃 (≥ 1024px) | 좌측 사이드바(w-56) + 콘텐츠 영역 전환 확인 |
+| T12-4 | 모든 쿼리에 `user_id` 포함 | RLS 통과 여부 (다른 계정 데이터 접근 불가) |
+| T12-5 | 소프트 삭제 | 삭제 시 `deleted_at` 설정, 목록에서 제외 확인 |
+| T12-6 | 비로그인 → 로그인 시 데이터 연동 | 로컬 데이터 서버 마이그레이션 |
