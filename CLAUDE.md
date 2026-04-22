@@ -119,16 +119,20 @@ lib/
 |---|---|---|
 | T01 | 인증 (비로그인 선 사용, 설정에서 로그인) | ✅ 완료 |
 | T02 | Inbox — Item 추가 + paper 추가, 날짜/paper 선택 | ✅ 완료 |
-| T03 | Inbox — Item 분류 (Envelope로) | 🔲 |
+| T03 | Inbox — Item 분류 (Envelope로) | 🔜 다음 |
 | T04 | Inbox — 완료 탭 (완료 paper 목록) | ✅ 완료 |
-| T05 | Papers — Envelope 관리 | 🔲 |
+| T05 | Papers — Envelope 관리 | 🔜 다음 |
 | T06 | Papers — Draft Card 완료 (오늘날짜 rename + wave) | ✅ 완료 |
 | T07 | Papers — Paper 완료 (Wave 생성) | ✅ 완료 |
 | T08 | Papers — 완료 탭 & 즐겨찾기 ★ | ✅ 완료 |
-| T09 | 새 Wave (즐겨찾기 복제) | 🔲 |
+| T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🔲 |
 | T11 | Me — Dashboard & Challenges | 🔲 |
-| T12 | 네비게이션 & 공통 | ✅ 완료 |
+| T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | 🔲 |
+
+### 작업 순서
+- **1차** `feat/envelope-wave-schedule`: T03 · T05 · T09
+- **2차**: T10 · T11 · T12
 
 ### 인증 정책
 - 로그인 필수 아님 — 비로그인으로 바로 inbox 사용 가능 (로컬 저장)
