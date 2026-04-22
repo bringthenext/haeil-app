@@ -75,7 +75,7 @@ export default function InboxScreen() {
   const [selectedInputPaperId, setSelectedInputPaperId] = useState<string | null>(null);
   const newPaperInputRef = useRef<TextInput>(null);
 
-  useFocusEffect(useCallback(() => { setTab("active"); }, []));
+  useFocusEffect(useCallback(() => { setTab("active"); setSelectedDate(null); }, []));
 
   // ── 데이터 패치 ──────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -253,7 +253,7 @@ export default function InboxScreen() {
   const completedPapers = inboxPapers.filter((p) => p.status === "completed");
 
   const visibleDraftItems = selectedDate
-    ? draftItems.filter((i) => i.scheduled_date === null || i.scheduled_date === selectedDate)
+    ? draftItems.filter((i) => i.scheduled_date === selectedDate)
     : draftItems;
 
   return (
@@ -268,13 +268,13 @@ export default function InboxScreen() {
           <Text style={{ fontSize: 22, fontWeight: "600", color: "#1a1a1a" }}>inbox</Text>
           <View style={{ flexDirection: "row", borderRadius: 20, borderWidth: 1, borderColor: "#eee", overflow: "hidden" }}>
             <Pressable
-              onPress={() => setTab("active")}
+              onPress={() => { setTab("active"); setSelectedDate(null); }}
               style={{ paddingHorizontal: 14, paddingVertical: 6, backgroundColor: tab === "active" ? "#1D9E75" : "transparent" }}
             >
               <Text style={{ fontSize: 13, color: tab === "active" ? "#fff" : "#888" }}>활성</Text>
             </Pressable>
             <Pressable
-              onPress={() => setTab("completed")}
+              onPress={() => { setTab("completed"); setSelectedDate(null); }}
               style={{ paddingHorizontal: 14, paddingVertical: 6, backgroundColor: tab === "completed" ? "#1D9E75" : "transparent" }}
             >
               <Text style={{ fontSize: 13, color: tab === "completed" ? "#fff" : "#888" }}>완료</Text>
