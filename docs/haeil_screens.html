@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>해일 — UI 화면 모음</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f5f0;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #555555;
+    --color-text-tertiary: #999999;
+    --color-border-tertiary: rgba(0,0,0,0.1);
+    --color-border-secondary: rgba(0,0,0,0.2);
+    --border-radius-lg: 12px;
+    --border-radius-md: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #eeeee8; padding: 2rem 1rem; }
+  h1 { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 0.5rem; }
+  .subtitle { font-size: 12px; color: #999; margin-bottom: 2rem; }
+  .section-title { font-size: 12px; font-weight: 600; color: #666; margin: 2.5rem 0 1rem; padding-bottom: 6px; border-bottom: 0.5px solid #ddd; letter-spacing: 0.05em; text-transform: uppercase; }
+  .screen-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .phone-label { font-size: 10px; color: #999; font-weight: 500; }
+  .phone { width: 200px; background: #e0e0db; border-radius: 28px; border: 0.5px solid #ccc; padding: 12px 0 20px; overflow: hidden; flex-shrink: 0; }
+  .status-bar { display: flex; justify-content: space-between; padding: 0 16px 8px; font-size: 9px; color: #aaa; }
+  .screen { background: #fff; padding: 0 0 48px; position: relative; min-height: 400px; }
+  .header { padding: 10px 12px 8px; display: flex; justify-content: space-between; align-items: center; }
+  .header-title { font-size: 14px; font-weight: 500; color: #1a1a1a; }
+  .toggle-wrap { display: flex; background: #f0f0eb; border-radius: 8px; border: 0.5px solid #ddd; padding: 1px; gap: 1px; }
+  .toggle-item { font-size: 7px; padding: 2px 5px; border-radius: 6px; color: #aaa; line-height: 1.4; }
+  .toggle-item.active { background: #fff; color: #1a1a1a; border: 0.5px solid #ddd; font-weight: 500; }
+  .env-tabs { display: flex; gap: 4px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+  .env-tab { font-size: 9px; padding: 3px 9px; border-radius: 20px; border: 0.5px solid #ddd; background: #fff; color: #888; white-space: nowrap; }
+  .env-tab.active { background: #1D9E75; border-color: #1D9E75; color: white; font-weight: 500; }
+  .env-add { width: 16px; height: 16px; border-radius: 50%; border: 0.5px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #aaa; flex-shrink: 0; }
+  .divider { height: 0.5px; background: #eee; margin: 0 12px 8px; }
+  .draft-card { margin: 0 12px 6px; border: 0.5px dashed #ccc; border-radius: 8px; padding: 7px 10px; background: #f8f8f4; }
+  .draft-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .draft-label { font-size: 8px; color: #aaa; font-weight: 500; }
+  .draft-count { font-size: 8px; color: #aaa; }
+  .prog-wrap { height: 2px; background: #eee; border-radius: 2px; margin-bottom: 4px; }
+  .prog-fill { height: 100%; border-radius: 2px; background: #1D9E75; }
+  .item-row { display: flex; align-items: center; gap: 5px; padding: 2px 0; }
+  .check-c { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #ccc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .check-c.done { background: #1D9E75; border-color: #1D9E75; }
+  .check-c.preview { border-color: #1D9E75; opacity: 0.4; }
+  .cm { width: 5px; height: 3px; border-left: 1.5px solid white; border-bottom: 1.5px solid white; transform: rotate(-45deg) translate(0px,-1px); }
+  .item-t { font-size: 9px; color: #1a1a1a; flex: 1; }
+  .item-t.done { color: #aaa; text-decoration: line-through; }
+  .item-t.preview { color: #1D9E75; opacity: 0.4; }
+  .item-time { font-size: 8px; color: #aaa; }
+  .tag-icon { font-size: 8px; color: #aaa; }
+  .add-row { display: flex; align-items: center; gap: 4px; padding: 3px 0 0; margin-top: 2px; border-top: 0.5px solid #eee; }
+  .add-plus { font-size: 10px; color: #aaa; }
+  .add-ph { font-size: 9px; color: #aaa; }
+  .paper-card { margin: 0 12px 5px; background: #fff; border: 0.5px solid #ddd; border-radius: 8px; padding: 7px 10px; }
+  .paper-card.expanded { border-color: #9FE1CB; border-width: 1px; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .card-title { font-size: 9px; font-weight: 500; color: #1a1a1a; }
+  .card-meta { display: flex; align-items: center; gap: 4px; font-size: 8px; color: #aaa; }
+  .card-footer { padding-top: 5px; margin-top: 3px; border-top: 0.5px solid #eee; display: flex; align-items: center; gap: 5px; }
+  .done-btn { font-size: 8px; color: white; font-weight: 500; padding: 2px 7px; border-radius: 5px; background: #1D9E75; white-space: nowrap; }
+  .add-paper-row { display: flex; gap: 4px; margin: 4px 12px 0; }
+  .add-paper-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 5px; border-radius: 8px; border: 0.5px dashed #ccc; }
+  .add-paper-text { font-size: 8px; color: #aaa; }
+  .inbox-input { position: absolute; bottom: 44px; left: 0; right: 0; padding: 5px 12px; border-top: 0.5px solid #eee; background: #fff; display: flex; align-items: center; gap: 6px; }
+  .input-field { flex: 1; font-size: 9px; color: #aaa; background: #f5f5f0; border: 0.5px solid #eee; border-radius: 20px; padding: 4px 8px; }
+  .input-field.active { color: #1a1a1a; border-color: #1D9E75; }
+  .input-send { width: 18px; height: 18px; border-radius: 50%; background: #1D9E75; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .paper-done { margin: 0 12px 5px; background: #fff; border: 0.5px solid #ddd; border-radius: 8px; padding: 7px 10px; }
+  .done-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .done-title { font-size: 9px; font-weight: 500; color: #1a1a1a; }
+  .done-right { display: flex; align-items: center; gap: 4px; font-size: 8px; color: #aaa; }
+  .star-on { color: #EF9F27; }
+  .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); }
+  .bottom-sheet { position: absolute; bottom: 44px; left: 0; right: 0; background: #fff; border-radius: 12px 12px 0 0; border-top: 0.5px solid #eee; padding: 8px 0 0; }
+  .sheet-handle { width: 24px; height: 2px; background: #ddd; border-radius: 2px; margin: 0 auto 8px; }
+  .sheet-title { font-size: 8px; color: #aaa; font-weight: 500; padding: 0 12px 6px; }
+  .fav-item { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-top: 0.5px solid #eee; }
+  .fav-info { flex: 1; }
+  .fav-name { font-size: 9px; font-weight: 500; color: #1a1a1a; }
+  .fav-sub { font-size: 8px; color: #aaa; }
+  .fav-waves { font-size: 8px; color: #0F6E56; font-weight: 500; }
+  .search-row { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-top: 0.5px dashed #eee; font-size: 9px; color: #aaa; }
+  .env-option { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-top: 0.5px solid #eee; }
+  .env-name-s { font-size: 9px; color: #1a1a1a; flex: 1; }
+  .env-count-s { font-size: 8px; color: #aaa; }
+  .top-row { display: flex; gap: 6px; margin: 0 12px 10px; }
+  .top-card { flex: 1; background: #f5f5f0; border-radius: 8px; padding: 8px; }
+  .top-card-label { font-size: 7px; color: #aaa; font-weight: 500; text-transform: uppercase; margin-bottom: 2px; }
+  .top-card-number { font-size: 22px; font-weight: 500; color: #1D9E75; line-height: 1; }
+  .top-card-unit { font-size: 8px; color: #666; margin-top: 1px; }
+  .top-card-sub { font-size: 7px; color: #aaa; margin-top: 3px; line-height: 1.4; }
+  .top-card-diff { font-size: 8px; color: #1D9E75; font-weight: 500; margin-top: 3px; }
+  .year-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 12px 8px; }
+  .year-btn { font-size: 12px; color: #aaa; }
+  .year-text { font-size: 10px; font-weight: 500; color: #1a1a1a; }
+  .dsection { padding: 0 12px 10px; }
+  .section-label-s { font-size: 8px; color: #aaa; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; }
+  .heatmap-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+  .heatmap-outer { overflow-x: auto; }
+  .heatmap { display: flex; gap: 1px; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 1px; }
+  .heatmap-cell { width: 5px; height: 5px; border-radius: 1px; background: #eee; }
+  .heatmap-cell.l1 { background: #9FE1CB; }
+  .heatmap-cell.l2 { background: #5DCAA5; }
+  .heatmap-cell.l3 { background: #1D9E75; }
+  .heatmap-cell.l4 { background: #0F6E56; }
+  .legend { display: flex; align-items: center; gap: 2px; }
+  .legend-label { font-size: 7px; color: #aaa; }
+  .legend-cell { width: 5px; height: 5px; border-radius: 1px; }
+  .env-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+  .env-dot2 { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .env-name2 { font-size: 9px; color: #1a1a1a; flex: 1; }
+  .env-bar-wrap { width: 50px; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
+  .env-bar { height: 100%; border-radius: 2px; }
+  .env-count2 { font-size: 8px; color: #aaa; width: 28px; text-align: right; }
+  .progress-summary { margin: 0 12px 10px; background: #f5f5f0; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .progress-text { font-size: 9px; color: #1a1a1a; font-weight: 500; }
+  .progress-sub { font-size: 8px; color: #aaa; margin-top: 1px; }
+  .cat { padding: 0 12px 10px; }
+  .cat-label { font-size: 8px; color: #aaa; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .badge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .badge { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .badge-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .badge-icon.unlocked { background: #E1F5EE; }
+  .badge-icon.locked { background: #f0f0eb; opacity: 0.4; }
+  .badge-icon.hidden { background: #f0f0eb; font-size: 12px; color: #aaa; }
+  .badge-name { font-size: 7px; color: #666; text-align: center; line-height: 1.3; }
+  .badge-name.locked { color: #aaa; }
+  .inner-tabs { display: flex; margin: 0 12px 10px; background: #f0f0eb; border-radius: 8px; padding: 2px; gap: 2px; }
+  .inner-tab { flex: 1; text-align: center; font-size: 9px; padding: 4px; border-radius: 6px; color: #aaa; }
+  .inner-tab.active { background: #fff; color: #1a1a1a; font-weight: 500; border: 0.5px solid #ddd; }
+  .bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 44px; background: #fff; border-top: 0.5px solid #eee; display: flex; align-items: center; justify-content: space-around; padding: 0 12px 4px; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nav-label { font-size: 8px; color: #aaa; }
+  .nav-label.active { color: #1D9E75; }
+
+  /* 아이콘 색상 */
+  .ic-active { stroke: #1D9E75; }
+  .ic-inactive { stroke: #cccccc; }
+</style>
+</head>
+<body>
+
+<h1>해일 (해야할 일)</h1>
+<p class="subtitle">UI 화면 모음 · v1.3 · 2026-04-10</p>
+
+<!-- INBOX -->
+<div class="section-title">📥 Inbox</div>
+<div class="screen-row">
+
+  <!-- inbox 활성 -->
+  <div class="phone-wrap">
+    <div class="phone-label">활성</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">inbox</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="divider"></div>
+        <div class="draft-card">
+          <div class="draft-top"><span class="draft-label">draft</span><span class="draft-count">2/5</span></div>
+          <div class="prog-wrap"><div class="prog-fill" style="width:40%"></div></div>
+          <div class="item-row"><div class="check-c"></div><span class="item-t">치과 예약 전화하기</span><span class="tag-icon">⊹</span></div>
+          <div class="item-row"><div class="check-c"></div><span class="item-t">세탁물 찾아오기</span><span class="tag-icon">⊹</span></div>
+          <div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t done">장보기 목록</span><span class="item-time">오전 8:14</span></div>
+        </div>
+        <div class="paper-card"><div class="card-top"><span class="card-title">이번 주 할 일</span><div class="card-meta"><span>1/5</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:20%"></div></div></div>
+        <div class="add-paper-row"><div class="add-paper-btn"><span class="add-plus">+</span><span class="add-paper-text">새 paper</span></div><div class="add-paper-btn"><span style="font-size:9px;color:#aaa;">★</span><span class="add-paper-text">새 wave</span></div></div>
+        <div class="inbox-input"><div class="input-field">할 일 추가...</div><div class="input-send"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:5px solid white;margin-bottom:1px;"></div></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label active">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- inbox 입력 중 -->
+  <div class="phone-wrap">
+    <div class="phone-label">입력 중 — 미리보기</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">inbox</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="divider"></div>
+        <div class="draft-card">
+          <div class="draft-top"><span class="draft-label">draft</span><span class="draft-count">2/5</span></div>
+          <div class="prog-wrap"><div class="prog-fill" style="width:40%"></div></div>
+          <div class="item-row" style="opacity:0.4;"><div class="check-c preview"></div><span class="item-t preview">병원 처방전 받기</span></div>
+          <div class="item-row"><div class="check-c"></div><span class="item-t">치과 예약 전화하기</span><span class="tag-icon">⊹</span></div>
+          <div class="item-row"><div class="check-c"></div><span class="item-t">세탁물 찾아오기</span><span class="tag-icon">⊹</span></div>
+          <div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t done">장보기 목록</span><span class="item-time">오전 8:14</span></div>
+        </div>
+        <div class="paper-card"><div class="card-top"><span class="card-title">이번 주 할 일</span><div class="card-meta"><span>1/5</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:20%"></div></div></div>
+        <div class="add-paper-row"><div class="add-paper-btn"><span class="add-plus">+</span><span class="add-paper-text">새 paper</span></div><div class="add-paper-btn"><span style="font-size:9px;color:#aaa;">★</span><span class="add-paper-text">새 wave</span></div></div>
+        <div class="inbox-input"><div class="input-field active">병원 처방전 받기</div><div class="input-send"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:5px solid white;margin-bottom:1px;"></div></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label active">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- inbox 분류 바텀시트 -->
+  <div class="phone-wrap">
+    <div class="phone-label">분류 바텀시트</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">inbox</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="divider"></div>
+        <div class="draft-card" style="opacity:0.3;"><div class="draft-top"><span class="draft-label">draft</span></div><div class="prog-wrap"><div class="prog-fill" style="width:40%"></div></div><div class="item-row"><div class="check-c" style="background:#E1F5EE;border-color:#1D9E75;"></div><span class="item-t" style="color:#1D9E75;">치과 예약 전화하기</span></div></div>
+        <div class="overlay"></div>
+        <div class="bottom-sheet"><div class="sheet-handle"></div><div class="sheet-title">어느 envelope로 분류할까요?</div><div class="env-option"><div style="width:6px;height:6px;border-radius:50%;background:#1D9E75;flex-shrink:0;"></div><span class="env-name-s">운동</span><span class="env-count-s">papers 3개</span></div><div class="env-option"><div style="width:6px;height:6px;border-radius:50%;background:#378ADD;flex-shrink:0;"></div><span class="env-name-s">업무</span><span class="env-count-s">papers 2개</span></div><div class="env-option"><div style="width:6px;height:6px;border-radius:50%;background:#BA7517;flex-shrink:0;"></div><span class="env-name-s">모닝루틴</span><span class="env-count-s">papers 1개</span></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label active">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- inbox 완료 -->
+  <div class="phone-wrap">
+    <div class="phone-label">완료</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">inbox</div><div class="toggle-wrap"><div class="toggle-item">활성</div><div class="toggle-item active">완료</div></div></div>
+        <div class="divider"></div>
+        <div class="paper-done"><div class="done-top"><span class="done-title">이번 주 할 일</span><div class="done-right"><span>오후 3:22</span><span class="star-on">★</span></div></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t">장보기 목록</span><span class="item-time">오전 8:14</span></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t">약 챙기기</span><span class="item-time">오전 9:02</span></div><div class="item-row"><div class="check-c"></div><span class="item-t">치과 예약</span></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label active">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PAPERS -->
+<div class="section-title">📄 Papers</div>
+<div class="screen-row">
+
+  <!-- 활성 접힘 -->
+  <div class="phone-wrap">
+    <div class="phone-label">활성 — 접힘</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">papers</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="env-tabs"><div class="env-tab active">운동</div><div class="env-tab">업무</div><div class="env-tab">모닝</div><div class="env-add">+</div></div>
+        <div class="divider"></div>
+        <div class="draft-card"><div class="draft-top"><span class="draft-label">draft</span><span class="draft-count">1/3</span></div><div class="prog-wrap"><div class="prog-fill" style="width:33%"></div></div><div class="item-row"><div class="check-c"></div><span class="item-t">PT 예약 확인</span></div></div>
+        <div class="paper-card"><div class="card-top"><span class="card-title">상체 루틴</span><div class="card-meta"><span>2/4</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:50%"></div></div></div>
+        <div class="paper-card"><div class="card-top"><span class="card-title">하체 루틴</span><div class="card-meta"><span>0/5</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:0%"></div></div></div>
+        <div class="add-paper-row"><div class="add-paper-btn"><span class="add-plus">+</span><span class="add-paper-text">새 paper</span></div><div class="add-paper-btn"><span style="font-size:9px;color:#aaa;">★</span><span class="add-paper-text">새 wave</span></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M3.5 6l1.2 1.2 2-2.4" stroke="#1D9E75" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 6h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M11 17h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 활성 펼침 -->
+  <div class="phone-wrap">
+    <div class="phone-label">활성 — 펼침</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">papers</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="env-tabs"><div class="env-tab active">운동</div><div class="env-tab">업무</div><div class="env-add">+</div></div>
+        <div class="divider"></div>
+        <div class="draft-card"><div class="draft-top"><span class="draft-label">draft</span><span class="draft-count">1/3</span></div><div class="prog-wrap"><div class="prog-fill" style="width:33%"></div></div><div class="item-row"><div class="check-c"></div><span class="item-t">PT 예약 확인</span></div></div>
+        <div class="paper-card"><div class="card-top"><span class="card-title">하체 루틴</span><div class="card-meta"><span>0/5</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:0%"></div></div></div>
+        <div class="paper-card expanded"><div class="card-top"><span class="card-title">상체 루틴</span><span style="font-size:9px;color:#aaa;">∨</span></div><div class="prog-wrap"><div class="prog-fill" style="width:50%"></div></div><div style="margin-top:4px;"><div class="item-row"><div class="check-c"></div><span class="item-t">덤벨 숄더프레스</span></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t done">웜업 10분</span><span class="item-time">8:02</span></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t done">벤치프레스</span><span class="item-time">8:31</span></div></div><div class="add-row"><span class="add-plus">+</span><span class="add-ph">항목 추가...</span></div><div class="card-footer"><div class="prog-wrap" style="flex:1;margin-bottom:0;"><div class="prog-fill" style="width:50%"></div></div><span style="font-size:8px;color:#aaa;">2/4</span><div class="done-btn">완료</div></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M3.5 6l1.2 1.2 2-2.4" stroke="#1D9E75" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 6h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M11 17h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 새 wave 바텀시트 -->
+  <div class="phone-wrap">
+    <div class="phone-label">새 wave 바텀시트</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">papers</div><div class="toggle-wrap"><div class="toggle-item active">활성</div><div class="toggle-item">완료</div></div></div>
+        <div class="env-tabs"><div class="env-tab active">운동</div><div class="env-tab">업무</div><div class="env-add">+</div></div>
+        <div class="divider"></div>
+        <div class="paper-card" style="opacity:0.3;"><div class="card-top"><span class="card-title">하체 루틴</span><div class="card-meta"><span>0/5</span><span>›</span></div></div><div class="prog-wrap"><div class="prog-fill" style="width:0%"></div></div></div>
+        <div class="overlay"></div>
+        <div class="bottom-sheet"><div class="sheet-handle"></div><div class="sheet-title">★ 즐겨찾기</div><div class="fav-item"><div class="fav-info"><div class="fav-name">상체 루틴</div><div class="fav-sub">웜업 · 벤치프레스 · +2개</div></div><span class="fav-waves">12 waves</span></div><div class="fav-item"><div class="fav-info"><div class="fav-name">모닝루틴</div><div class="fav-sub">기상 후 물 · 스트레칭 · +3개</div></div><span class="fav-waves">8 waves</span></div><div class="search-row">전체 완료 paper에서 검색... ›</div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M3.5 6l1.2 1.2 2-2.4" stroke="#1D9E75" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 6h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M11 17h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 완료 -->
+  <div class="phone-wrap">
+    <div class="phone-label">완료</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">papers</div><div class="toggle-wrap"><div class="toggle-item">활성</div><div class="toggle-item active">완료</div></div></div>
+        <div class="env-tabs"><div class="env-tab active">운동</div><div class="env-tab">업무</div><div class="env-add">+</div></div>
+        <div class="divider"></div>
+        <div class="paper-done"><div class="done-top"><span class="done-title">상체 루틴</span><div class="done-right"><span>오전 9:14</span><span class="star-on">★</span></div></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t">웜업 10분</span><span class="item-time">8:02</span></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t">벤치프레스</span><span class="item-time">8:31</span></div><div class="item-row"><div class="check-c"></div><span class="item-t">쿨다운</span></div></div>
+        <div class="paper-done"><div class="done-top"><span class="done-title">2026-04-08</span><div class="done-right"><span>오전 7:45</span><span style="font-size:9px;color:#ccc;">☆</span></div></div><div class="item-row"><div class="check-c done"><div class="cm"></div></div><span class="item-t">PT 예약 확인</span><span class="item-time">7:12</span></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M3.5 6l1.2 1.2 2-2.4" stroke="#1D9E75" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 6h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#1D9E75" stroke-width="1.5"/><path d="M11 17h10" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ME -->
+<div class="section-title">👤 Me</div>
+<div class="screen-row">
+
+  <!-- dashboard -->
+  <div class="phone-wrap">
+    <div class="phone-label">dashboard</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">me</div><span style="font-size:13px;color:#aaa;">⚙</span></div>
+        <div class="inner-tabs"><div class="inner-tab active">dashboard</div><div class="inner-tab">challenges</div></div>
+        <div class="top-row"><div class="top-card"><div class="top-card-label">streak</div><div class="top-card-number">12</div><div class="top-card-unit">일 연속</div><div class="top-card-sub">최장 18일<br>30일 중 24일</div></div><div class="top-card"><div class="top-card-label">이번 주</div><div class="top-card-number">14</div><div class="top-card-unit">waves</div><div class="top-card-diff">▲ 지난 주 +5</div></div></div>
+        <div class="year-nav"><span class="year-btn">‹</span><span class="year-text">2026</span><span class="year-btn" style="color:#ddd;">›</span></div>
+        <div class="dsection"><div class="heatmap-header"><div class="section-label-s">연간 기록</div><div class="legend"><span class="legend-label">적음</span><div style="display:flex;gap:1px;"><div class="legend-cell" style="width:5px;height:5px;border-radius:1px;background:#eee;"></div><div class="legend-cell" style="width:5px;height:5px;border-radius:1px;background:#9FE1CB;"></div><div class="legend-cell" style="width:5px;height:5px;border-radius:1px;background:#1D9E75;"></div><div class="legend-cell" style="width:5px;height:5px;border-radius:1px;background:#0F6E56;"></div></div><span class="legend-label">많음</span></div></div><div class="heatmap-outer"><div class="heatmap" id="hm"></div></div></div>
+        <div class="dsection"><div class="section-label-s">루틴별 누적 wave</div><div class="env-row"><div class="env-dot2" style="background:#1D9E75"></div><span class="env-name2">운동</span><div class="env-bar-wrap"><div class="env-bar" style="width:90%;background:#1D9E75"></div></div><span class="env-count2">42 🌊</span></div><div class="env-row"><div class="env-dot2" style="background:#378ADD"></div><span class="env-name2">업무</span><div class="env-bar-wrap"><div class="env-bar" style="width:60%;background:#378ADD"></div></div><span class="env-count2">28 🌊</span></div><div class="env-row"><div class="env-dot2" style="background:#BA7517"></div><span class="env-name2">모닝</span><div class="env-bar-wrap"><div class="env-bar" style="width:40%;background:#BA7517"></div></div><span class="env-count2">19 🌊</span></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#1D9E75" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- challenges -->
+  <div class="phone-wrap">
+    <div class="phone-label">challenges</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">me</div><span style="font-size:13px;color:#aaa;">⚙</span></div>
+        <div class="inner-tabs"><div class="inner-tab">dashboard</div><div class="inner-tab active">challenges</div></div>
+        <div class="progress-summary"><div><div class="progress-text">18 / 64 달성</div><div class="progress-sub">46개의 도전이 남아있어요</div><div class="prog-wrap" style="width:100%;margin-top:4px;"><div class="prog-fill" style="width:28%"></div></div></div><div style="font-size:22px;">🌊</div></div>
+        <div class="cat"><div class="cat-label">첫 발걸음</div><div class="badge-grid"><div class="badge"><div class="badge-icon unlocked">✅</div><div class="badge-name">첫 할일</div></div><div class="badge"><div class="badge-icon unlocked">🌊</div><div class="badge-name">첫 wave</div></div><div class="badge"><div class="badge-icon unlocked">📂</div><div class="badge-name">첫 envelope</div></div><div class="badge"><div class="badge-icon locked">⭐</div><div class="badge-name locked">첫 즐겨찾기</div></div></div></div>
+        <div class="cat"><div class="cat-label">꾸준함</div><div class="badge-grid"><div class="badge"><div class="badge-icon unlocked">🔥</div><div class="badge-name">3일 연속</div></div><div class="badge"><div class="badge-icon unlocked">🔥</div><div class="badge-name">7일 연속</div></div><div class="badge"><div class="badge-icon locked">🔥</div><div class="badge-name locked">30일</div></div><div class="badge"><div class="badge-icon locked">🔥</div><div class="badge-name locked">100일</div></div></div></div>
+        <div class="cat"><div class="cat-label">숨겨진 도전 ✦</div><div class="badge-grid"><div class="badge"><div class="badge-icon hidden">?</div><div class="badge-name locked">???</div></div><div class="badge"><div class="badge-icon unlocked">🌙</div><div class="badge-name">자정의 wave</div></div><div class="badge"><div class="badge-icon hidden">?</div><div class="badge-name locked">???</div></div><div class="badge"><div class="badge-icon hidden">?</div><div class="badge-name locked">???</div></div></div></div>
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#1D9E75" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const hm = document.getElementById('hm');
+const lvls = [0,1,0,2,1,0,3,2,1,0,1,2,3,4,2,1,0,1,2,0,1,3,2,1,0,2,1,0,1,2,3,2,1,4,3,2,1,0,1,2,1,0,1,2,3,4,3,2,1,2,3,2,1,0,1,2,0,1,2,3,2,1,0,1,0,2,3,4,3,2,1,0,1,2,3,2,1,0,1,2,1,0,2,3,4,3,2,1,0,1,2,3,4,3,2,1,2,3,4,3,2,1,0,1,2,1,0,1,2,3,2,1,0,1,2,3,4,3,2,1,0,0,1,2,1,0];
+const weeks = Math.ceil(lvls.length/7);
+for(let w=0;w<weeks;w++){const col=document.createElement('div');col.className='heatmap-col';for(let d=0;d<7;d++){const idx=w*7+d;const cell=document.createElement('div');const lv=idx<lvls.length?lvls[idx]:0;cell.className='heatmap-cell'+(lv>0?' l'+Math.min(lv,4):'');col.appendChild(cell);}hm.appendChild(col);}
+</script>
+</body>
+</html>
+
+<!-- INBOX 탭 구조 업데이트 주석 -->
+<!-- inbox/papers 내부에 할일|스케줄 탭 추가 필요 (별도 화면 참고) -->
+
+<!-- SCHEDULE -->
+<div class="section-title">📅 Schedule</div>
+<div class="screen-row">
+
+  <div class="phone-wrap">
+    <div class="phone-label">schedule — 전사 뷰</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●●</span></div>
+      <div class="screen">
+        <div class="header"><div class="header-title">schedule</div></div>
+
+        <!-- 캘린더 바 -->
+        <div style="padding:0 12px 8px;">
+          <div style="display:flex;gap:3px;">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">월</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">7</span><div style="height:5px;"></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">화</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">8</span>
+              <div style="height:5px;display:flex;align-items:center;gap:2px;"><div style="width:4px;height:4px;border-radius:50%;background:#1D9E75;"></div></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">수</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">9</span><div style="height:5px;"></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;background:#1D9E75;border-radius:10px;">
+              <span style="font-size:8px;color:rgba(255,255,255,0.8);">목</span><span style="font-size:11px;font-weight:500;color:white;">10</span>
+              <div style="height:5px;display:flex;align-items:center;gap:2px;"><div style="width:4px;height:4px;border-radius:50%;background:white;"></div><div style="width:4px;height:4px;border-radius:50%;background:white;"></div></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">금</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">11</span>
+              <div style="height:5px;display:flex;align-items:center;gap:2px;"><div style="width:4px;height:4px;border-radius:50%;background:#1D9E75;"></div></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">토</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">12</span><div style="height:5px;"></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;">
+              <span style="font-size:8px;color:#aaa;">일</span><span style="font-size:11px;font-weight:500;color:#1a1a1a;">13</span><div style="height:5px;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="height:0.5px;background:#eee;margin:0 12px 8px;"></div>
+
+        <!-- 지난 날짜 -->
+        <div style="padding:0 12px 8px;opacity:0.5;">
+          <div style="font-size:9px;color:#aaa;font-weight:500;margin-bottom:4px;">화 · 4월 8일 <span style="color:#E24B4A;font-size:8px;">지남</span></div>
+          <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#f5f5f0;border-radius:7px;margin-bottom:3px;">
+            <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid #ccc;flex-shrink:0;"></div>
+            <span style="font-size:9px;color:#1a1a1a;flex:1;">약 처방전 받기</span>
+            <span style="font-size:8px;color:#aaa;background:#eee;padding:1px 5px;border-radius:8px;">inbox</span>
+          </div>
+        </div>
+
+        <!-- 오늘 -->
+        <div style="padding:0 12px 8px;">
+          <div style="font-size:9px;color:#1D9E75;font-weight:600;margin-bottom:4px;">오늘 · 4월 10일</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#E1F5EE;border-radius:7px;margin-bottom:3px;">
+            <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid #1D9E75;flex-shrink:0;"></div>
+            <span style="font-size:9px;color:#1a1a1a;flex:1;">치과 예약 전화하기</span>
+            <span style="font-size:8px;color:#0F6E56;background:#E1F5EE;border:0.5px solid #9FE1CB;padding:1px 5px;border-radius:8px;">inbox</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#E1F5EE;border-radius:7px;margin-bottom:3px;">
+            <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid #1D9E75;flex-shrink:0;"></div>
+            <span style="font-size:9px;color:#1a1a1a;flex:1;">상체 루틴 — 벤치프레스</span>
+            <span style="font-size:8px;color:#0F6E56;background:#E1F5EE;border:0.5px solid #9FE1CB;padding:1px 5px;border-radius:8px;">운동</span>
+          </div>
+        </div>
+
+        <!-- 금요일 -->
+        <div style="padding:0 12px 8px;">
+          <div style="font-size:9px;color:#666;font-weight:500;margin-bottom:4px;">금 · 4월 11일</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#f5f5f0;border-radius:7px;">
+            <div style="width:12px;height:12px;border-radius:50%;border:1.5px solid #ccc;flex-shrink:0;"></div>
+            <span style="font-size:9px;color:#1a1a1a;flex:1;">운동화 주문</span>
+            <span style="font-size:8px;color:#aaa;background:#eee;padding:1px 5px;border-radius:8px;">inbox</span>
+          </div>
+        </div>
+
+        <!-- 입력창 -->
+        <div style="position:absolute;bottom:44px;left:0;right:0;padding:5px 12px;border-top:0.5px solid #eee;background:#fff;display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;font-size:9px;color:#aaa;background:#f5f5f0;border:0.5px solid #eee;border-radius:20px;padding:4px 8px;">할 일 추가...</div>
+          <div style="width:18px;height:18px;border-radius:50%;background:#1D9E75;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:5px solid white;margin-bottom:1px;"></div></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">inbox</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="5" cy="6" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 6h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="17" r="3.5" stroke="#ccc" stroke-width="1.5"/><path d="M11 17h10" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">papers</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#1D9E75" stroke-width="1.5"/><path d="M3 9h18" stroke="#1D9E75" stroke-width="1.5"/><path d="M8 2v4M16 2v4" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label active" style="color:#1D9E75;">schedule</span></div>
+          <div class="nav-item"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3" stroke="#ccc" stroke-width="1.5"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/></svg><span class="nav-label">me</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
