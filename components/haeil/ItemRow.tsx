@@ -5,6 +5,13 @@ type Props = {
   item: Item;
   onToggle: (id: string, checked: boolean) => void;
   showTagIcon?: boolean;
+  onClassify?: () => void;
+  /** 완료된 paper 내 아이템: 체크돼도 취소선·회색 적용 안 함 */
+  suppressCheckedStyle?: boolean;
+  /** SortableList drag 핸들러 — 롱탭 드래그용 */
+  onLongPress?: () => void;
+  onPressOut?: () => void;
+  delayLongPress?: number;
 };
 
 function formatTime(isoString: string): string {
@@ -35,11 +42,16 @@ function formatScheduledDate(dateStr: string): string {
   return `${month}/${day}`;
 }
 
-export function ItemRow({ item, onToggle, showTagIcon = true }: Props) {
+export function ItemRow({ item, onToggle, showTagIcon = true, onClassify, suppressCheckedStyle = false, onLongPress, onPressOut, delayLongPress = 400 }: Props) {
   const hasDate = !!item.scheduled_date;
 
   return (
-    <View className="flex-row items-center gap-2 py-1.5">
+    <Pressable
+      onLongPress={onLongPress ?? onClassify}
+      onPressOut={onPressOut}
+      delayLongPress={delayLongPress}
+      className="flex-row items-center gap-2 py-1.5"
+    >
       <Pressable
         onPress={() => onToggle(item.id, !item.is_checked)}
         hitSlop={8}
@@ -65,14 +77,20 @@ export function ItemRow({ item, onToggle, showTagIcon = true }: Props) {
         </View>
       </Pressable>
 
-      <Text
-        className={`flex-1 text-sm ${
-          item.is_checked ? "text-[#aaa] line-through" : "text-[#1a1a1a]"
-        }`}
-        numberOfLines={3}
+      <Pressable
+        onPress={() => onToggle(item.id, !item.is_checked)}
+        style={{ flex: 1 }}
+        hitSlop={4}
       >
-        {item.content}
-      </Text>
+        <Text
+          className={`text-sm ${
+            item.is_checked && !suppressCheckedStyle ? "text-[#999] line-through" : "text-[#1a1a1a]"
+          }`}
+          numberOfLines={3}
+        >
+          {item.content}
+        </Text>
+      </Pressable>
 
       {/* 날짜 칩: 체크 여부와 무관하게 항상 표시 */}
       {hasDate && (
@@ -88,11 +106,15 @@ export function ItemRow({ item, onToggle, showTagIcon = true }: Props) {
         <Text className="text-[10px] text-[#aaa]">
           {formatTime(item.checked_at)}
         </Text>
+      ) : onClassify ? (
+        <Pressable onPress={onClassify} hitSlop={8}>
+          <Text style={{ color: "#bbb", fontSize: 16 }}>⊹</Text>
+        </Pressable>
       ) : (
         !hasDate && showTagIcon && (
           <Text className="text-[#bbb] text-sm">⊹</Text>
         )
       )}
-    </View>
+    </Pressable>
   );
 }

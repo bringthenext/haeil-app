@@ -61,6 +61,46 @@ export async function toggleFavorite(id: string, current: boolean): Promise<void
   if (error) throw error;
 }
 
+/** 즐겨찾기 paper 복제 (새 wave) — items 초기화(미체크)하여 새 active paper 생성 */
+export async function clonePaper(
+  originalPaper: Paper,
+  originalItems: import("@/lib/types").Item[],
+  userId: string,
+): Promise<{ paper: Paper; items: import("@/lib/types").Item[] }> {
+  const { data: newPaper, error } = await supabase
+    .from("papers")
+    .insert({
+      user_id: userId,
+      envelope_id: originalPaper.envelope_id,
+      parent_paper_id: originalPaper.id,
+      name: originalPaper.name,
+      status: "active",
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  let newItems: import("@/lib/types").Item[] = [];
+  if (originalItems.length > 0) {
+    const { data, error: itemsError } = await supabase
+      .from("items")
+      .insert(
+        originalItems.map((item) => ({
+          user_id: userId,
+          paper_id: newPaper.id,
+          content: item.content,
+          is_checked: false,
+          scheduled_date: item.scheduled_date,
+        })),
+      )
+      .select("*");
+    if (itemsError) throw itemsError;
+    newItems = (data ?? []) as import("@/lib/types").Item[];
+  }
+
+  return { paper: newPaper as Paper, items: newItems };
+}
+
 /** 소프트 삭제 */
 export async function deletePaper(id: string): Promise<void> {
   const { error } = await supabase

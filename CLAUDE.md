@@ -126,13 +126,26 @@ lib/
 | T07 | Papers — Paper 완료 (Wave 생성) | ✅ 완료 |
 | T08 | Papers — 완료 탭 & 즐겨찾기 ★ | ✅ 완료 |
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
-| T10 | Schedule 화면 | 🔲 |
+| T10 | Schedule 화면 | 🚧 진행 중 (주간 캘린더 + 드래그 리오더 + 주간 스와이프 연동 완료) |
 | T11 | Me — Dashboard & Challenges | 🔲 |
 | T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | 🔲 |
 
 ### 작업 순서
 - **1차** `feat/envelope-wave-schedule`: T03 · T05 · T09
 - **2차**: T10 · T11 · T12
+
+### 현재 진행 상황 (2026-04-25 기준)
+- 브랜치: `feat/envelope-wave-schedule`
+- Schedule 탭 (T10) 핵심 인터랙션 구현 완료:
+  - `WeekCalendarBar` + 월 선택 모달
+  - 날짜 섹션별 아이템 리스트 (헤더 + 아이템 단일 배열)
+  - 롱탭 드래그 리오더 → 날짜 이동 + 순서 재계산 일괄 반영
+  - "오늘" 버튼 항상 노출 (캘린더 바 우측) → 오늘 선택 + 리스트 스크롤
+  - 주간 스와이프 시 해당 주 **월요일** 자동 선택 + 리스트 스크롤
+  - `dateRange` 동적 확장: 스와이프 타겟이 범위 밖이면 연속 날짜로 prepend/append
+- 드래그 리오더 라이브러리: `react-native-gesture-handler` + RN 기본 `Animated`
+  - **주의**: Reanimated 4.2.1은 `react-native-css-interop`(NativeWind) 의존이라 제거 금지. 단, Expo Go 호환 이슈로 현재 Reanimated 플러그인은 `babel.config.js`에서 주석 처리됨 (Dev Build에서만 활성화).
+  - `SortableList`의 `springAnims`는 반드시 **item key(id) 기반 `Map`**으로 인덱싱할 것. position 배열로 하면 리오더 후 translateY 바인딩이 어긋나 2번째 드래그가 깨짐.
 
 ### 인증 정책
 - 로그인 필수 아님 — 비로그인으로 바로 inbox 사용 가능 (로컬 저장)
@@ -165,6 +178,57 @@ lib/
 | star | `#EF9F27` | 즐겨찾기 ★ |
 
 > 참고 문서: `docs/haeil_screens.html` (UI 목업), `docs/haeil_uxui.md` (UX/UI 설계), `docs/haeil_structure_v2.md` (데이터 구조), `docs/TASKS.md` (태스크 상세 시나리오)
+
+## 협업 원칙 (유진 님과 작업 시)
+
+### 1. 시키는 대로만 하지 말고 더 나은 대안 먼저 제안하기
+- 유저가 요청한 방식이 있어도, 더 나은 라이브러리·아키텍처·UX 대안이 보이면 **먼저 짧게 제안하고 확인받은 뒤 진행**.
+- 구현 중 중요한 분기점(범위 확장, 패키지 추가/제거, 복잡한 상태 설계 등)에서도 A/B 선택지를 제시하고 유저의 판단을 받는다.
+- 단, 이미 결정된 자잘한 구현 디테일까지 매번 묻지 말 것. 균형이 중요.
+
+### 2. 네이티브 패키지 변경은 최대한 신중하게
+- `react-native-reanimated`, `react-native-worklets`, `react-native-gesture-handler` 등은 NativeWind·Expo·빌드 시스템과 얽혀 있어서 섣불리 제거/업그레이드하면 전체가 깨진다.
+- 제거·버전 변경 전에 **반드시 영향 범위를 먼저 확인하고 유저에게 알릴 것**. 과거에 reanimated/worklets 제거 → NativeWind(css-interop)가 먼저 터진 사례 있음.
+- Expo Go vs Dev Build 차이도 함께 고지할 것 (Expo Go는 번들된 네이티브 모듈 버전에 고정).
+
+### 3. 드래그·애니메이션 이슈는 근본 원인부터 찾기
+- "2번째부터 안 된다" 류의 반복 버그는 보통 **ref 바인딩이 position 기반인데 key가 재정렬되는** 케이스. 증상만 보고 다른 라이브러리로 돌리지 말고 바인딩 모델부터 의심.
+- `Animated.Value` 같은 네이티브 드라이버 바인딩은 조건부 value 교체 대신 `Animated.add` 등으로 **항상 같은 derived value**를 유지하는 편이 안정적.
+
+### 4. 응답 톤·길이
+- 유저는 한국어 선호. 짧고 직설적인 업데이트를 선호하며, 트레일링 요약이나 메타 설명을 싫어함.
+- 에러·경고 맥락에서는 "뭘 바꿨고 왜 바꿨는지" 1~2줄로 충분.
+
+### 5. 유저가 "해보자" / "ㅠㅠ" 등으로 동의·실망을 짧게 표현할 때
+- 실망 신호("ㅠㅠ", "아 뭐하냐")가 나오면 추가 시도 전에 **먼저 현상황을 정리·복구**하고, 다음 한 수만 제안.
+- 동의 신호("해보자", "ㄱㄱ")는 바로 실행하되, 되돌리기 어려운 액션은 여전히 한 번 더 확인.
+
+## React Native 코딩 규칙
+
+### ⚠️ Pressable style 콜백 주의
+`Pressable`의 `style={({ pressed }) => ({ ... })}` 콜백 안에 `flexDirection`, `alignItems`, `justifyContent` 등 **레이아웃 속성을 넣으면 FlatList/ScrollView 내부에서 적용되지 않는 버그**가 있다.
+
+**반드시 아래 패턴으로 분리할 것:**
+```tsx
+// ❌ 잘못된 패턴
+<Pressable style={({ pressed }) => ({
+  flexDirection: "row",      // 적용 안 됨
+  backgroundColor: pressed ? "#f5f5f0" : "#fff",
+})}>
+
+// ✅ 올바른 패턴 — 레이아웃은 내부 View, 동적 스타일만 Pressable에
+<Pressable style={({ pressed }) => ({
+  backgroundColor: pressed ? "#f5f5f0" : "#fff",
+})}>
+  <View style={{ flexDirection: "row", alignItems: "center", padding: 14 }}>
+    {/* 내용 */}
+  </View>
+</Pressable>
+```
+
+### 완료된 Paper 내 Item 렌더링
+완료 탭의 paper 내 아이템은 **체크 여부와 무관하게 취소선·회색 처리 없음** (체크 아이콘 + 타임스탬프만 표시).
+`ItemRow`에 `suppressCheckedStyle` prop을 전달해 제어한다.
 
 ## 환경 변수
 - `EXPO_PUBLIC_SUPABASE_URL`

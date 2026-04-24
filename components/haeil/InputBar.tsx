@@ -19,6 +19,8 @@ type Props = {
   onChangeText: (text: string) => void;
   onSubmit: (content: string, scheduledDate: string | null, paperId: string | null) => void;
   showDatePicker?: boolean;
+  /** true면 날짜 미선택 시 제출 불가 */
+  requireDate?: boolean;
   placeholder?: string;
   /** 선택 가능한 paper 목록 (없으면 paper 칩 미노출) */
   papers?: PaperOption[];
@@ -33,7 +35,10 @@ const PRESET_OPTIONS: { key: Exclude<TagKey, "custom" | null>; label: string }[]
 ];
 
 function toDateStr(d: Date): string {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function getPresetDate(tag: TagKey): string | null {
@@ -53,11 +58,13 @@ export function InputBar({
   onChangeText,
   onSubmit,
   showDatePicker = true,
+  requireDate = false,
   placeholder = "할 일 추가...",
   papers,
   onPaperSelect,
 }: Props) {
-  const [selectedTag, setSelectedTag] = useState<TagKey>(null);
+  // requireDate=true 이면 기본값을 "오늘"로 고정
+  const [selectedTag, setSelectedTag] = useState<TagKey>(() => requireDate ? "today" : null);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [customDateStr, setCustomDateStr] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -70,6 +77,7 @@ export function InputBar({
   }
 
   const showChips = isFocused || value.length > 0 || showPicker;
+  const canSubmit = value.trim().length > 0 && (!requireDate || !!getScheduledDate());
 
   function getScheduledDate(): string | null {
     if (!selectedTag) return null;
@@ -80,6 +88,7 @@ export function InputBar({
   function handleSubmit() {
     const trimmed = value.trim();
     if (!trimmed) return;
+    if (requireDate && !getScheduledDate()) return; // 날짜 필수
     onSubmit(trimmed, getScheduledDate(), selectedPaperId);
     onChangeText("");
   }
@@ -89,13 +98,16 @@ export function InputBar({
   }
 
   function handleReset() {
-    setSelectedTag(null);
+    // requireDate=true 이면 초기화해도 "오늘"로 (null 불가)
+    setSelectedTag(requireDate ? "today" : null);
     setCustomDateStr(null);
     setPickerDate(new Date());
     selectPaper(null);
   }
 
   function handlePresetTap(key: Exclude<TagKey, "custom" | null>) {
+    // requireDate=true 이면 이미 선택된 날짜를 해제할 수 없음
+    if (requireDate && selectedTag === key) return;
     setSelectedTag(selectedTag === key ? null : key);
   }
 
@@ -268,11 +280,12 @@ export function InputBar({
         />
         <Pressable
           onPress={handleSubmit}
+          disabled={!canSubmit}
           style={{
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: "#1D9E75",
+            backgroundColor: canSubmit ? "#1D9E75" : "#ccc",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,

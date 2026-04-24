@@ -10,25 +10,27 @@ import {
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ClassifySheet } from "@/components/haeil/ClassifySheet";
+import { CompletedPaperCard } from "@/components/haeil/CompletedPaperCard";
 import { DraftCard } from "@/components/haeil/DraftCard";
+import { EnvelopeReorderSheet } from "@/components/haeil/EnvelopeReorderSheet";
+import { FavoriteSheet } from "@/components/haeil/FavoriteSheet";
 import { InputBar } from "@/components/haeil/InputBar";
 import { ItemRow } from "@/components/haeil/ItemRow";
 import { PaperCard } from "@/components/haeil/PaperCard";
 import { useSession } from "@/hooks/useSession";
-import { addItem, getItemsByPaperIds, toggleItem } from "@/lib/api/items";
-import { addPaper, completePaper, getPapers, toggleFavorite } from "@/lib/api/papers";
-import { getEnvelopes } from "@/lib/api/envelopes";
-import { addWave } from "@/lib/api/waves";
+import { addItem, classifyItemToEnvelope, getItemsByPaperIds, toggleItem, updateItemOrders } from "@/lib/api/items";
+import { addEnvelope, getEnvelopes, updateEnvelopeOrders } from "@/lib/api/envelopes";
+import { addPaper, clonePaper, completePaper, getPapers, toggleFavorite, updatePaperOrders } from "@/lib/api/papers";
+import { addWave, getRoutineWaveCountsByPaperIds } from "@/lib/api/waves";
+import { SortableList } from "@/components/haeil/SortableList";
 import type { Envelope, Item, Paper } from "@/lib/types";
 
-function formatCompletedAt(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()} 완료`;
-}
 
 function makeOptimistic(
   userId: string,
@@ -53,6 +55,10 @@ function makeOptimistic(
 
 export default function PapersScreen() {
   const { userId } = useSession();
+  const { width } = useWindowDimensions();
+  const pagerRef = useRef<ScrollView>(null);
+  const pagerHeight = useRef(0);
+
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
   const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
   const [allPapers, setAllPapers] = useState<Paper[]>([]);
@@ -62,28 +68,46 @@ export default function PapersScreen() {
   const [loading, setLoading] = useState(true);
   const [isAddingPaper, setIsAddingPaper] = useState(false);
   const [newPaperName, setNewPaperName] = useState("");
+  const [isAddingEnvelope, setIsAddingEnvelope] = useState(false);
+  const [newEnvName, setNewEnvName] = useState("");
   const [tab, setTab] = useState<"active" | "completed">("active");
+  const [completedSort, setCompletedSort] = useState<"desc" | "asc">("desc");
+  const [expandedCompletedId, setExpandedCompletedId] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [selectedInputPaperId, setSelectedInputPaperId] = useState<string | null>(null);
+  const [showFavoriteSheet, setShowFavoriteSheet] = useState(false);
+  const [showEnvReorder, setShowEnvReorder] = useState(false);
+  const [waveCounts, setWaveCounts] = useState<Record<string, number>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  // { itemId, fromPaperId } — 분류 시트를 열기 위한 대상
+  const [classifyTarget, setClassifyTarget] = useState<{ itemId: string; fromPaperId: string } | null>(null);
+  // envelope별 내부 ScrollView ref + 스크롤 오프셋 (아이템 드래그용)
+  const envScrollRefs = useRef(new Map<string, ScrollView | null>());
+  const envScrollOffsets = useRef(new Map<string, number>());
   const newPaperInputRef = useRef<TextInput>(null);
+  const newEnvInputRef = useRef<TextInput>(null);
 
   function handleInputPaperSelect(paperId: string | null) {
     setSelectedInputPaperId(paperId);
     if (paperId) setExpandedPaperId(paperId);
   }
 
-  // ── 파생 상태 ─────────────────────────────────────────────────────────────────
-  const activePapersAll = allPapers.filter(
-    (p) => p.envelope_id === selectedEnvId && p.status === "active",
-  );
-  const draftPaper = activePapersAll.find((p) => p.name === null) ?? null;
-  const activePapers = activePapersAll.filter((p) => p.name !== null);
-  const draftItems = draftPaper ? (itemsByPaperId[draftPaper.id] ?? []) : [];
-  const completedPapers = allPapers.filter(
-    (p) => p.envelope_id === selectedEnvId && p.status === "completed",
+  // ── 파생 상태 (selectedEnvId 기준) ──────────────────────────────────────────
+  const activePapersForEnv = (envId: string | null) =>
+    allPapers.filter((p) => p.envelope_id === envId && p.status === "active" && p.name !== null);
+
+  const draftPaperForEnv = (envId: string | null) =>
+    allPapers.find((p) => p.envelope_id === envId && p.status === "active" && p.name === null) ?? null;
+
+  const completedPapersForEnv = (envId: string | null) =>
+    allPapers.filter((p) => p.envelope_id === envId && p.status === "completed");
+
+  const favoritePapers = allPapers.filter(
+    (p) => p.is_favorite && p.status === "completed" && p.envelope_id === selectedEnvId,
   );
 
-  useFocusEffect(useCallback(() => { setTab("active"); }, []));
+  // 현재 선택된 envelope 기준 (InputBar용)
+  const currentActivePapers = activePapersForEnv(selectedEnvId);
 
   // ── 데이터 패치 ──────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async (keepEnvId?: string) => {
@@ -93,9 +117,13 @@ export default function PapersScreen() {
       setAllPapers(papers);
       const nextEnvId = keepEnvId ?? (envs.length > 0 ? envs[0].id : null);
       setSelectedEnvId(nextEnvId);
+
       const paperIds = papers.map((p) => p.id);
       if (paperIds.length > 0) {
-        const items = await getItemsByPaperIds(paperIds);
+        const [items, counts] = await Promise.all([
+          getItemsByPaperIds(paperIds),
+          getRoutineWaveCountsByPaperIds(paperIds),
+        ]);
         const grouped: Record<string, Item[]> = {};
         for (const item of items) {
           if (!item.paper_id) continue;
@@ -103,6 +131,7 @@ export default function PapersScreen() {
           grouped[item.paper_id].push(item);
         }
         setItemsByPaperId(grouped);
+        setWaveCounts(counts);
       }
     } catch {
       // silent
@@ -112,6 +141,7 @@ export default function PapersScreen() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { setTab("active"); fetchAll(selectedEnvId ?? undefined); }, [fetchAll, selectedEnvId]));
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -119,11 +149,75 @@ export default function PapersScreen() {
     setRefreshing(false);
   };
 
+  // ── Pager 동기화 (tab 선택 → scroll) ────────────────────────────────────────
+  useEffect(() => {
+    const index = envelopes.findIndex((e) => e.id === selectedEnvId);
+    if (index >= 0 && pagerRef.current) {
+      pagerRef.current.scrollTo({ x: index * width, animated: false });
+    }
+  }, [selectedEnvId, envelopes, width]);
+
+  function handlePageSwipe(x: number) {
+    const index = Math.round(x / width);
+    const env = envelopes[index];
+    if (env && env.id !== selectedEnvId) {
+      setSelectedEnvId(env.id);
+      setExpandedPaperId(null);
+    }
+  }
+
+  // ── Envelope 추가 ────────────────────────────────────────────────────────────
+  async function handleCreateEnvelope() {
+    const name = newEnvName.trim();
+    setIsAddingEnvelope(false);
+    setNewEnvName("");
+    if (!name || !userId) return;
+    try {
+      const created = await addEnvelope(userId, { name });
+      setEnvelopes((prev) => [...prev, created]);
+      setSelectedEnvId(created.id);
+    } catch { /* silent */ }
+  }
+
+  // ── Envelope 순서 변경 ───────────────────────────────────────────────────────
+  async function handleReorderEnvelopes(newEnvelopes: Envelope[]) {
+    setEnvelopes(newEnvelopes);
+    try {
+      await updateEnvelopeOrders(newEnvelopes.map((e, i) => ({ id: e.id, order: i })));
+    } catch {
+      await fetchAll(selectedEnvId ?? undefined);
+    }
+  }
+
+  // ── Paper 순서 변경 ──────────────────────────────────────────────────────────
+  async function handleReorderPapers(newPapers: Paper[], envId: string) {
+    setAllPapers((prev) => {
+      const others = prev.filter((p) => p.envelope_id !== envId || p.name === null);
+      return [...others, ...newPapers];
+    });
+    try {
+      await updatePaperOrders(newPapers.map((p, i) => ({ id: p.id, order: i })));
+    } catch {
+      await fetchAll(selectedEnvId ?? undefined);
+    }
+  }
+
+  // ── Item 순서 변경 ───────────────────────────────────────────────────────────
+  async function handleReorderItems(paperId: string, newItems: Item[]) {
+    setItemsByPaperId((prev) => ({ ...prev, [paperId]: newItems }));
+    try {
+      await updateItemOrders(newItems.map((item, i) => ({ id: item.id, order: i })));
+    } catch {
+      await fetchAll(selectedEnvId ?? undefined);
+    }
+  }
+
   // ── Draft 항목 추가 ───────────────────────────────────────────────────────────
-  async function handleAddToDraft(content: string, scheduledDate: string | null = null) {
+  async function handleAddToDraft(content: string, envId: string, scheduledDate: string | null = null) {
     if (!userId) return;
-    if (draftPaper) {
-      const pid = draftPaper.id;
+    const draft = draftPaperForEnv(envId);
+    if (draft) {
+      const pid = draft.id;
       const opt = makeOptimistic(userId, content, pid, scheduledDate);
       setItemsByPaperId((p) => ({ ...p, [pid]: [opt, ...(p[pid] ?? [])] }));
       try {
@@ -136,7 +230,7 @@ export default function PapersScreen() {
       }
     } else {
       try {
-        const np = await addPaper(userId, { name: null, envelope_id: selectedEnvId, status: "active" });
+        const np = await addPaper(userId, { name: null, envelope_id: envId, status: "active" });
         const created = await addItem(userId, { content, paper_id: np.id, scheduled_date: scheduledDate });
         setAllPapers((prev) => [...prev, np]);
         setItemsByPaperId((prev) => ({ ...prev, [np.id]: [created] }));
@@ -160,37 +254,39 @@ export default function PapersScreen() {
     }
   }
 
-  // ── 하단 InputBar 제출 (날짜 + paper 선택 포함) ────────────────────────────
+  // ── 하단 InputBar 제출 ────────────────────────────────────────────────────────
   async function handleBottomSubmit(content: string, scheduledDate: string | null, paperId: string | null) {
     if (paperId) {
-      const paper = activePapers.find((p) => p.id === paperId);
+      const paper = currentActivePapers.find((p) => p.id === paperId);
       if (paper) await handleAddToPaper(paper, content, scheduledDate);
     } else {
-      await handleAddToDraft(content, scheduledDate);
+      await handleAddToDraft(content, selectedEnvId!, scheduledDate);
     }
   }
 
-  // ── Draft 완료 (draft paper name → 오늘날짜, status → completed) ───────────
-  async function handleCompleteDraft() {
-    if (!draftPaper || !userId) return;
+  // ── Draft 완료 ───────────────────────────────────────────────────────────────
+  async function handleCompleteDraft(envId: string) {
+    const draft = draftPaperForEnv(envId);
+    if (!draft || !userId) return;
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date().toISOString();
     setAllPapers((prev) =>
       prev.map((p) =>
-        p.id === draftPaper.id
-          ? { ...p, status: "completed", name: today, completed_at: now }
-          : p,
+        p.id === draft.id ? { ...p, status: "completed", name: today, completed_at: now } : p,
       ),
     );
     try {
-      await completePaper(draftPaper.id, true);
-      await addWave(userId, draftPaper.id);
+      await completePaper(draft.id, true);
+      await addWave(userId, draft.id);
+      setWaveCounts((prev) => {
+        const next = { ...prev, [draft.id]: (prev[draft.id] ?? 0) + 1 };
+        if (draft.parent_paper_id) next[draft.parent_paper_id] = (prev[draft.parent_paper_id] ?? 0) + 1;
+        return next;
+      });
     } catch {
       setAllPapers((prev) =>
         prev.map((p) =>
-          p.id === draftPaper.id
-            ? { ...p, status: "active", name: null, completed_at: null }
-            : p,
+          p.id === draft.id ? { ...p, status: "active", name: null, completed_at: null } : p,
         ),
       );
     }
@@ -247,6 +343,11 @@ export default function PapersScreen() {
     try {
       await completePaper(paper.id, paper.name === null);
       await addWave(userId, paper.id);
+      setWaveCounts((prev) => {
+        const next = { ...prev, [paper.id]: (prev[paper.id] ?? 0) + 1 };
+        if (paper.parent_paper_id) next[paper.parent_paper_id] = (prev[paper.parent_paper_id] ?? 0) + 1;
+        return next;
+      });
     } catch {
       setAllPapers((prev) =>
         prev.map((p) =>
@@ -270,6 +371,21 @@ export default function PapersScreen() {
         prev.map((p) => (p.id === paper.id ? { ...p, is_favorite: paper.is_favorite } : p)),
       );
     }
+  }
+
+  // ── 새 Wave (즐겨찾기 복제) ──────────────────────────────────────────────────
+  async function handleCloneFavorite(original: Paper) {
+    if (!userId) return;
+    const originalItems = itemsByPaperId[original.id] ?? [];
+    try {
+      const { paper: newPaper, items: newItems } = await clonePaper(original, originalItems, userId);
+      setAllPapers((prev) => [...prev, newPaper]);
+      setItemsByPaperId((prev) => ({ ...prev, [newPaper.id]: newItems }));
+      // 복제된 paper가 속한 envelope로 이동 + 펼침
+      if (newPaper.envelope_id) setSelectedEnvId(newPaper.envelope_id);
+      setExpandedPaperId(newPaper.id);
+      setTab("active");
+    } catch { /* silent */ }
   }
 
   // ── 렌더 ─────────────────────────────────────────────────────────────────────
@@ -325,6 +441,8 @@ export default function PapersScreen() {
                   setIsAddingPaper(false);
                   setNewPaperName("");
                 }}
+                onLongPress={() => setShowEnvReorder(true)}
+                delayLongPress={400}
                 style={{
                   paddingHorizontal: 12,
                   paddingVertical: 5,
@@ -340,145 +458,269 @@ export default function PapersScreen() {
               </Pressable>
             );
           })}
-          <Pressable
-            style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 0.5, borderColor: "#ddd", alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={{ fontSize: 12, color: "#aaa", lineHeight: 14 }}>+</Text>
-          </Pressable>
+
+          {/* envelope 추가 */}
+          {isAddingEnvelope ? (
+            <View style={{ borderRadius: 20, borderWidth: 0.5, borderColor: "#9FE1CB", paddingHorizontal: 10, paddingVertical: 4 }}>
+              <TextInput
+                ref={newEnvInputRef}
+                style={{ fontSize: 12, color: "#1a1a1a", minWidth: 60 }}
+                placeholder="이름..."
+                placeholderTextColor="#ccc"
+                value={newEnvName}
+                onChangeText={setNewEnvName}
+                onSubmitEditing={handleCreateEnvelope}
+                onBlur={() => { if (!newEnvName.trim()) { setIsAddingEnvelope(false); setNewEnvName(""); } }}
+                returnKeyType="done"
+                autoFocus
+              />
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => { setIsAddingEnvelope(true); setTimeout(() => newEnvInputRef.current?.focus(), 80); }}
+              style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 0.5, borderColor: "#ddd", alignItems: "center", justifyContent: "center" }}
+            >
+              <Text style={{ fontSize: 14, color: "#aaa", lineHeight: 16 }}>+</Text>
+            </Pressable>
+          )}
         </ScrollView>
 
         <View style={{ height: 0.5, backgroundColor: "#eee", marginHorizontal: 12, marginBottom: 8 }} />
 
-        {/* 스크롤 콘텐츠 */}
-        <ScrollView
-          style={{ flex: 1 }}
-          keyboardShouldPersistTaps="handled"
-          onScrollBeginDrag={Keyboard.dismiss}
-          contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1D9E75" />}
-        >
-          {envelopes.length === 0 ? (
-            <View style={{ alignItems: "center", paddingTop: 80 }}>
-              <Text style={{ fontSize: 14, color: "#aaa" }}>envelope가 없습니다</Text>
-            </View>
-          ) : tab === "active" ? (
-            <>
-              {/* Draft Card — envelope 내 paper 없는 items (name=null paper) */}
-              <DraftCard
-                items={draftItems}
-                previewText={selectedInputPaperId ? undefined : inputText}
-                onToggle={(id, checked) => draftPaper && handleToggleItem(draftPaper.id, id, checked)}
-                onComplete={draftPaper ? handleCompleteDraft : undefined}
-              />
+        {/* Envelope 페이지 (좌우 스와이프) */}
+        {envelopes.length === 0 ? (
+          <View style={{ flex: 1, alignItems: "center", paddingTop: 80 }}>
+            <Text style={{ fontSize: 14, color: "#aaa" }}>+ 버튼으로 envelope를 추가해보세요</Text>
+          </View>
+        ) : (
+          <ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => handlePageSwipe(e.nativeEvent.contentOffset.x)}
+            style={{ flex: 1 }}
+            scrollEnabled={!isDragging}
+            onLayout={(e) => { pagerHeight.current = e.nativeEvent.layout.height; }}
+          >
+            {envelopes.map((env) => {
+              const draft = draftPaperForEnv(env.id);
+              const draftItems = draft ? (itemsByPaperId[draft.id] ?? []) : [];
+              const activePapers = activePapersForEnv(env.id);
+              const completedPapers = completedPapersForEnv(env.id);
 
-              {/* Named Paper Cards */}
-              {activePapers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  items={itemsByPaperId[paper.id] ?? []}
-                  isExpanded={expandedPaperId === paper.id}
-                  onToggleExpand={() =>
-                    setExpandedPaperId(expandedPaperId === paper.id ? null : paper.id)
-                  }
-                  onToggleItem={(id, checked) => handleToggleItem(paper.id, id, checked)}
-                  onComplete={() => handleComplete(paper)}
-                  onAddItem={(content) => handleAddToPaper(paper, content)}
-                  previewText={selectedInputPaperId === paper.id ? inputText : undefined}
-                />
-              ))}
+              const disableEnvScroll = () => envScrollRefs.current.get(env.id)?.setNativeProps({ scrollEnabled: false });
+              const enableEnvScroll  = () => envScrollRefs.current.get(env.id)?.setNativeProps({ scrollEnabled: true });
+              const scrollByEnv = (delta: number) => {
+                const offset = envScrollOffsets.current.get(env.id) ?? 0;
+                const newY = offset + delta;
+                envScrollOffsets.current.set(env.id, newY);
+                envScrollRefs.current.get(env.id)?.scrollTo({ y: newY, animated: false });
+              };
 
-              {/* 새 paper 인라인 입력 */}
-              {isAddingPaper && (
-                <View style={{ marginHorizontal: 12, marginBottom: 6, borderRadius: 8, borderWidth: 1, borderColor: "#9FE1CB", backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <TextInput
-                    ref={newPaperInputRef}
-                    style={{ fontSize: 14, color: "#1a1a1a" }}
-                    placeholder="paper 이름..."
-                    placeholderTextColor="#ccc"
-                    value={newPaperName}
-                    onChangeText={setNewPaperName}
-                    onSubmitEditing={handleCreatePaper}
-                    onBlur={() => { if (!newPaperName.trim()) { setIsAddingPaper(false); setNewPaperName(""); } }}
-                    returnKeyType="done"
-                    autoFocus
-                  />
-                </View>
-              )}
+              return (
+                <View key={env.id} style={{ width }}>
+                  <ScrollView
+                    ref={(ref) => { envScrollRefs.current.set(env.id, ref); }}
+                    keyboardShouldPersistTaps="handled"
+                    onScrollBeginDrag={Keyboard.dismiss}
+                    scrollEnabled={!isDragging}
+                    scrollEventThrottle={16}
+                    onScroll={(e) => { envScrollOffsets.current.set(env.id, e.nativeEvent.contentOffset.y); }}
+                    contentContainerStyle={{ paddingBottom: 24 }}
+                    refreshControl={
+                      env.id === selectedEnvId
+                        ? <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1D9E75" />
+                        : undefined
+                    }
+                  >
+                    {tab === "active" ? (
+                      <>
+                        <DraftCard
+                          items={draftItems}
+                          previewText={selectedInputPaperId || env.id !== selectedEnvId ? undefined : inputText}
+                          onToggle={(id, checked) => draft && handleToggleItem(draft.id, id, checked)}
+                          onComplete={draft ? () => handleCompleteDraft(env.id) : undefined}
+                          onReorderItems={draft ? (newItems) => handleReorderItems(draft.id, newItems) : undefined}
+                          onClassifyItem={draft ? (itemId) => setClassifyTarget({ itemId, fromPaperId: draft.id }) : undefined}
+                          onItemDragStart={() => setIsDragging(true)}
+                          onItemDragEnd={() => setIsDragging(false)}
+                          disableParentScroll={disableEnvScroll}
+                          enableParentScroll={enableEnvScroll}
+                          scrollBy={scrollByEnv}
+                        />
 
-              <View style={{ flexDirection: "row", gap: 4, marginHorizontal: 12, marginTop: 2 }}>
-                <Pressable
-                  onPress={() => { setIsAddingPaper(true); setTimeout(() => newPaperInputRef.current?.focus(), 80); }}
-                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 8, borderRadius: 8, borderWidth: 0.5, borderColor: "#ccc", borderStyle: "dashed" }}
-                >
-                  <Text style={{ fontSize: 11, color: "#aaa" }}>+  새 paper</Text>
-                </Pressable>
-                <Pressable
-                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 8, borderRadius: 8, borderWidth: 0.5, borderColor: "#ccc", borderStyle: "dashed" }}
-                >
-                  <Text style={{ fontSize: 11, color: "#aaa" }}>★  새 wave</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            /* 완료 탭 */
-            <>
-              {completedPapers.length === 0 ? (
-                <View style={{ alignItems: "center", paddingTop: 60 }}>
-                  <Text style={{ fontSize: 14, color: "#aaa" }}>완료된 paper가 없습니다</Text>
-                </View>
-              ) : (
-                completedPapers.map((paper) => {
-                  const paperItems = itemsByPaperId[paper.id] ?? [];
-                  return (
-                    <View
-                      key={paper.id}
-                      style={{ marginHorizontal: 12, marginBottom: 8, borderRadius: 8, borderWidth: 0.5, borderColor: "#ddd", backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 10 }}
-                    >
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                        <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: "#1a1a1a", marginRight: 8 }} numberOfLines={1}>
-                          {paper.name}
-                        </Text>
-                        <Pressable onPress={() => handleToggleFavorite(paper)} hitSlop={8}>
-                          <Text style={{ fontSize: 16, color: paper.is_favorite ? "#EF9F27" : "#ddd" }}>★</Text>
-                        </Pressable>
-                      </View>
-                      {paper.completed_at && (
-                        <Text style={{ fontSize: 11, color: "#aaa", marginBottom: 8 }}>
-                          {formatCompletedAt(paper.completed_at)}
-                        </Text>
-                      )}
-                      {paperItems.length > 0 && (
-                        <View style={{ borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 4 }}>
-                          {paperItems.map((item) => (
-                            <ItemRow
-                              key={item.id}
-                              item={item}
-                              onToggle={(id, checked) => handleToggleItem(paper.id, id, checked)}
-                              showTagIcon={false}
+                        <SortableList
+                          data={activePapers}
+                          keyExtractor={(p) => p.id}
+                          onReorder={(newPapers) => handleReorderPapers(newPapers, env.id)}
+                          itemHeight={62}
+                          onDragStart={() => setIsDragging(true)}
+                          onDragEnd={() => setIsDragging(false)}
+                          renderItem={(paper, _, dh) => (
+                            <PaperCard
+                              paper={paper}
+                              items={itemsByPaperId[paper.id] ?? []}
+                              isExpanded={expandedPaperId === paper.id}
+                              onToggleExpand={() =>
+                                setExpandedPaperId(expandedPaperId === paper.id ? null : paper.id)
+                              }
+                              onToggleItem={(id, checked) => handleToggleItem(paper.id, id, checked)}
+                              onComplete={() => handleComplete(paper)}
+                              onAddItem={(content) => handleAddToPaper(paper, content)}
+                              onReorderItems={(newItems) => handleReorderItems(paper.id, newItems)}
+                              onClassifyItem={(itemId) => setClassifyTarget({ itemId, fromPaperId: paper.id })}
+                              previewText={selectedInputPaperId === paper.id && env.id === selectedEnvId ? inputText : undefined}
+                              onLongPress={dh.onLongPress}
+                              onPressOut={dh.onPressOut}
+                              delayLongPress={dh.delayLongPress}
+                              onItemDragStart={() => setIsDragging(true)}
+                              onItemDragEnd={() => setIsDragging(false)}
+                              disableParentScroll={disableEnvScroll}
+                              enableParentScroll={enableEnvScroll}
+                              scrollBy={scrollByEnv}
                             />
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })
-              )}
-            </>
-          )}
-        </ScrollView>
+                          )}
+                        />
 
-        {/* 하단 InputBar — 활성 탭에서만 */}
+                        {/* 새 paper 인라인 입력 */}
+                        {isAddingPaper && env.id === selectedEnvId && (
+                          <View style={{ marginHorizontal: 12, marginBottom: 6, borderRadius: 8, borderWidth: 1, borderColor: "#9FE1CB", backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 10 }}>
+                            <TextInput
+                              ref={newPaperInputRef}
+                              style={{ fontSize: 14, color: "#1a1a1a" }}
+                              placeholder="paper 이름..."
+                              placeholderTextColor="#ccc"
+                              value={newPaperName}
+                              onChangeText={setNewPaperName}
+                              onSubmitEditing={handleCreatePaper}
+                              onBlur={() => { if (!newPaperName.trim()) { setIsAddingPaper(false); setNewPaperName(""); } }}
+                              returnKeyType="done"
+                              autoFocus
+                            />
+                          </View>
+                        )}
+
+                        <View style={{ flexDirection: "row", gap: 4, marginHorizontal: 12, marginTop: 2 }}>
+                          <Pressable
+                            onPress={() => {
+                              setIsAddingPaper(true);
+                              setTimeout(() => newPaperInputRef.current?.focus(), 80);
+                            }}
+                            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 8, borderRadius: 8, borderWidth: 0.5, borderColor: "#ccc", borderStyle: "dashed" }}
+                          >
+                            <Text style={{ fontSize: 11, color: "#aaa" }}>+  새 paper</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => setShowFavoriteSheet(true)}
+                            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 8, borderRadius: 8, borderWidth: 0.5, borderColor: "#ccc", borderStyle: "dashed" }}
+                          >
+                            <Text style={{ fontSize: 11, color: "#aaa" }}>★  새 wave</Text>
+                          </Pressable>
+                        </View>
+                      </>
+                    ) : (
+                      /* 완료 탭 */
+                      <>
+                        {/* 정렬 토글 */}
+                        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 12, marginBottom: 6 }}>
+                          <Pressable
+                            onPress={() => setCompletedSort((s) => s === "desc" ? "asc" : "desc")}
+                            style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, borderWidth: 0.5, borderColor: "#ddd" }}
+                          >
+                            <Text style={{ fontSize: 11, color: "#888" }}>
+                              {completedSort === "desc" ? "최신순 ↓" : "오래된순 ↑"}
+                            </Text>
+                          </Pressable>
+                        </View>
+
+                        {completedPapers.length === 0 ? (
+                          <View style={{ alignItems: "center", paddingTop: 60 }}>
+                            <Text style={{ fontSize: 14, color: "#aaa" }}>완료된 paper가 없습니다</Text>
+                          </View>
+                        ) : (
+                          [...completedPapers]
+                            .sort((a, b) => {
+                              const ta = new Date(a.completed_at ?? a.created_at).getTime();
+                              const tb = new Date(b.completed_at ?? b.created_at).getTime();
+                              return completedSort === "desc" ? tb - ta : ta - tb;
+                            })
+                            .map((paper) => (
+                              <CompletedPaperCard
+                                key={paper.id}
+                                paper={paper}
+                                items={itemsByPaperId[paper.id] ?? []}
+                                isExpanded={expandedCompletedId === paper.id}
+                                onToggleExpand={() =>
+                                  setExpandedCompletedId(expandedCompletedId === paper.id ? null : paper.id)
+                                }
+                                onToggleItem={(id, checked) => handleToggleItem(paper.id, id, checked)}
+                                onToggleFavorite={() => handleToggleFavorite(paper)}
+                                waveCount={waveCounts[paper.id] ?? 0}
+                              />
+                            ))
+                        )}
+                      </>
+                    )}
+                  </ScrollView>
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* 하단 InputBar — 활성 탭 + envelope 있을 때만 */}
         {tab === "active" && envelopes.length > 0 && (
           <InputBar
             value={inputText}
             onChangeText={setInputText}
             onSubmit={handleBottomSubmit}
             onPaperSelect={handleInputPaperSelect}
-            papers={activePapers.map((p) => ({ id: p.id, name: p.name! }))}
+            papers={currentActivePapers.map((p) => ({ id: p.id, name: p.name! }))}
           />
         )}
       </KeyboardAvoidingView>
+
+      {/* 새 Wave 바텀시트 */}
+      <FavoriteSheet
+        visible={showFavoriteSheet}
+        favorites={favoritePapers}
+        itemsByPaperId={itemsByPaperId}
+        waveCounts={waveCounts}
+        onSelect={(paper) => {
+          setShowFavoriteSheet(false);
+          handleCloneFavorite(paper);
+        }}
+        onClose={() => setShowFavoriteSheet(false)}
+      />
+
+      {/* Envelope 순서 변경 바텀시트 */}
+      <EnvelopeReorderSheet
+        visible={showEnvReorder}
+        envelopes={envelopes}
+        onReorder={handleReorderEnvelopes}
+        onClose={() => setShowEnvReorder(false)}
+      />
+
+      {/* 아이템 → 다른 Envelope 분류 시트 */}
+      <ClassifySheet
+        visible={classifyTarget !== null}
+        envelopes={envelopes}
+        onSelect={(envId) => {
+          if (classifyTarget && userId) {
+            const { itemId, fromPaperId } = classifyTarget;
+            // 낙관적으로 현재 paper에서 제거
+            setItemsByPaperId((prev) => ({
+              ...prev,
+              [fromPaperId]: (prev[fromPaperId] ?? []).filter((i) => i.id !== itemId),
+            }));
+            classifyItemToEnvelope(itemId, envId, userId).catch(() => fetchAll(selectedEnvId ?? undefined));
+          }
+          setClassifyTarget(null);
+        }}
+        onClose={() => setClassifyTarget(null)}
+      />
     </SafeAreaView>
   );
 }

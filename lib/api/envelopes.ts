@@ -11,6 +11,7 @@ export async function getEnvelopes(): Promise<Envelope[]> {
     .from("envelopes")
     .select("*")
     .is("deleted_at", null)
+    .order("order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Envelope[];
@@ -28,6 +29,17 @@ export async function addEnvelope(
     .single();
   if (error) throw error;
   return data as Envelope;
+}
+
+/** 봉투 순서 일괄 업데이트 */
+export async function updateEnvelopeOrders(
+  updates: { id: string; order: number }[],
+): Promise<void> {
+  await Promise.all(
+    updates.map(({ id, order }) =>
+      supabase.from("envelopes").update({ order }).eq("id", id),
+    ),
+  );
 }
 
 /** 봉투 소프트 삭제 */

@@ -5,6 +5,6 @@ module.exports = function (api) {
       ["babel-preset-expo", { jsxImportSource: "nativewind" }],
       "nativewind/babel",
     ],
-    // react-native-reanimated/plugin은 드래그 기능 구현(T06) 때 다시 추가
+    // react-native-reanimated/plugin — Dev Build 환경에서만 활성화
   };
 };
