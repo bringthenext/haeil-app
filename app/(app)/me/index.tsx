@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
 
 import { useSession } from "@/hooks/useSession";
+import { InsightCard } from "@/components/me/InsightCard";
 import { StreakCard } from "@/components/me/StreakCard";
 import { WeekWaveCard } from "@/components/me/WeekWaveCard";
 import { HeatmapCalendar } from "@/components/me/HeatmapCalendar";
@@ -60,6 +61,7 @@ export default function MeScreen() {
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
         {activeTab === "dashboard" ? (
           <>
+            <InsightCard />
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
               <StreakCard />
               <WeekWaveCard />

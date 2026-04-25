@@ -22,7 +22,7 @@ export function RoutineWaveChart() {
     <View className="mb-3 rounded-2xl bg-white p-4">
       <View className="mb-3 flex-row items-center gap-1.5">
         <BarChart2 size={16} color="#1D9E75" />
-        <Text className="text-sm font-semibold text-[#1a1a1a]">루틴별 wave</Text>
+        <Text className="text-sm font-semibold text-[#1a1a1a]">루틴별 누적 wave</Text>
       </View>
 
       {data.length === 0 ? (
