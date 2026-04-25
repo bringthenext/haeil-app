@@ -31,6 +31,23 @@ export async function addEnvelope(
   return data as Envelope;
 }
 
+/** 유저에게 envelope가 하나도 없으면 기본 Envelope 생성 */
+export async function ensureDefaultEnvelope(userId: string): Promise<void> {
+  const { data: existing, error: selectError } = await supabase
+    .from("envelopes")
+    .select("id")
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .limit(1);
+  if (selectError) throw selectError;
+  if (existing && existing.length > 0) return;
+
+  const { error } = await supabase
+    .from("envelopes")
+    .insert({ user_id: userId, name: "Envelope", order: 0 });
+  if (error) throw error;
+}
+
 /** 봉투 순서 일괄 업데이트 */
 export async function updateEnvelopeOrders(
   updates: { id: string; order: number }[],

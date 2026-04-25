@@ -17,7 +17,7 @@ export default function AppLayout() {
   const { session, loading } = useSession();
   const { isMobile } = useBreakpoint();
 
-  if (!loading && !session) return <Redirect href="/(auth)/login" />;
+  if (!loading && !session) return <Redirect href="/" />;
 
   // 태블릿/데스크탑: 사이드바 레이아웃
   if (!isMobile) {
