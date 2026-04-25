@@ -151,6 +151,41 @@ export async function getYearlyWaveMap(year: number): Promise<YearlyWaveMap> {
   return map;
 }
 
+export type WaveDetail = {
+  id: string;
+  completedAt: string; // HH:mm
+  paperName: string;
+};
+
+/** 특정 날짜(YYYY-MM-DD)의 wave 목록 + paper 이름 */
+export async function getWaveDetailsByDate(date: string): Promise<WaveDetail[]> {
+  const { data, error } = await supabase
+    .from("waves")
+    .select("id, completed_at, paper_id")
+    .gte("completed_at", `${date}T00:00:00.000Z`)
+    .lte("completed_at", `${date}T23:59:59.999Z`)
+    .order("completed_at", { ascending: true });
+  if (error) throw error;
+  if (!data?.length) return [];
+
+  const paperIds = [...new Set(data.map((w) => w.paper_id as string))];
+  const { data: papers } = await supabase
+    .from("papers")
+    .select("id, name")
+    .in("id", paperIds);
+  const paperMap = new Map((papers ?? []).map((p) => [p.id as string, p.name as string | null]));
+
+  return data.map((w) => ({
+    id: w.id as string,
+    completedAt: new Date(w.completed_at as string).toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }),
+    paperName: paperMap.get(w.paper_id as string) ?? w.completed_at.slice(0, 10),
+  }));
+}
+
 export type BadgeStats = {
   currentStreak: number;
   bestStreak: number;

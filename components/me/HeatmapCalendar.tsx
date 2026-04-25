@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { Pressable } from "react-native";
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 
-import { getYearlyWaveMap, type YearlyWaveMap } from "@/lib/api/stats";
+import {
+  getWaveDetailsByDate,
+  getYearlyWaveMap,
+  type WaveDetail,
+  type YearlyWaveMap,
+} from "@/lib/api/stats";
 
-// wave 수 → 색상 (4단계)
 function heatColor(count: number): string {
   if (count === 0) return "#f0f0ec";
-  if (count <= 2) return "#9FE1CB"; // primary-light
-  if (count <= 5) return "#1D9E75"; // primary
-  return "#0F6E56"; // primary-dark
+  if (count <= 2) return "#9FE1CB";
+  if (count <= 5) return "#1D9E75";
+  return "#0F6E56";
 }
 
 const CELL = 11;
@@ -19,15 +22,11 @@ const WEEKS = 53;
 const MONTH_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 function buildGrid(year: number, waveMap: YearlyWaveMap) {
-  // 1월 1일이 무슨 요일인지 (0=일)
   const jan1 = new Date(year, 0, 1);
-  const startOffset = jan1.getDay(); // 일요일 기준 offset
-
-  // 연도의 전체 날짜
+  const startOffset = jan1.getDay();
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const totalDays = isLeap ? 366 : 365;
 
-  // col별로 날짜 배열 (col=주, row=요일 0~6)
   const cols: { date: string; count: number; month: number }[][] = [];
   for (let col = 0; col < WEEKS; col++) {
     const week: { date: string; count: number; month: number }[] = [];
@@ -44,7 +43,6 @@ function buildGrid(year: number, waveMap: YearlyWaveMap) {
     cols.push(week);
   }
 
-  // 월 라벨 위치 (각 월의 첫 번째 칼럼)
   const monthColMap = new Map<number, number>();
   for (let col = 0; col < cols.length; col++) {
     for (const cell of cols[col]) {
@@ -57,17 +55,23 @@ function buildGrid(year: number, waveMap: YearlyWaveMap) {
   return { cols, monthColMap };
 }
 
+type PopoverState = {
+  date: string;
+  count: number;
+  waves: WaveDetail[] | null; // null = 로딩 중
+};
+
 export function HeatmapCalendar() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [waveMap, setWaveMap] = useState<YearlyWaveMap>({});
+  const [popover, setPopover] = useState<PopoverState | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     getYearlyWaveMap(year).then(setWaveMap).catch(console.error);
   }, [year]);
 
-  // 현재 연도면 오늘 주 근처로 초기 스크롤
   useEffect(() => {
     if (year === currentYear) {
       const jan1 = new Date(year, 0, 1);
@@ -79,6 +83,13 @@ export function HeatmapCalendar() {
       setTimeout(() => scrollRef.current?.scrollTo({ x: scrollX, animated: false }), 50);
     }
   }, [year, currentYear]);
+
+  const handleCellPress = (date: string, count: number) => {
+    setPopover({ date, count, waves: null });
+    getWaveDetailsByDate(date)
+      .then((waves) => setPopover((p) => p?.date === date ? { ...p, waves } : p))
+      .catch(console.error);
+  };
 
   const { cols, monthColMap } = buildGrid(year, waveMap);
 
@@ -107,18 +118,11 @@ export function HeatmapCalendar() {
           {/* 월 라벨 행 */}
           <View style={{ flexDirection: "row", marginBottom: 3 }}>
             {cols.map((_, colIdx) => {
-              const label = Array.from(monthColMap.entries()).find(
-                ([, c]) => c === colIdx,
-              );
+              const label = Array.from(monthColMap.entries()).find(([, c]) => c === colIdx);
               return (
-                <View
-                  key={colIdx}
-                  style={{ width: CELL + GAP, alignItems: "flex-start" }}
-                >
+                <View key={colIdx} style={{ width: CELL + GAP, alignItems: "flex-start" }}>
                   {label !== undefined ? (
-                    <Text style={{ fontSize: 9, color: "#999999" }}>
-                      {MONTH_LABELS[label[0]]}
-                    </Text>
+                    <Text style={{ fontSize: 9, color: "#999999" }}>{MONTH_LABELS[label[0]]}</Text>
                   ) : null}
                 </View>
               );
@@ -128,13 +132,11 @@ export function HeatmapCalendar() {
           {/* 셀 그리드 */}
           <View style={{ flexDirection: "row" }}>
             {cols.map((week, colIdx) => (
-              <View
-                key={colIdx}
-                style={{ flexDirection: "column", marginRight: GAP }}
-              >
+              <View key={colIdx} style={{ flexDirection: "column", marginRight: GAP }}>
                 {week.map((cell, rowIdx) => (
-                  <View
+                  <Pressable
                     key={rowIdx}
+                    onPress={() => cell.date ? handleCellPress(cell.date, cell.count) : undefined}
                     style={{
                       width: CELL,
                       height: CELL,
@@ -154,18 +156,86 @@ export function HeatmapCalendar() {
             {[0, 1, 3, 6].map((v) => (
               <View
                 key={v}
-                style={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: 2,
-                  backgroundColor: heatColor(v),
-                }}
+                style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: heatColor(v) }}
               />
             ))}
             <Text style={{ fontSize: 9, color: "#999999", marginLeft: 3 }}>많음</Text>
           </View>
         </View>
       </ScrollView>
+
+      {/* 팝오버 모달 */}
+      <Modal
+        visible={popover !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPopover(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" }}
+          onPress={() => setPopover(null)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View
+              style={{
+                backgroundColor: "#ffffff",
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                padding: 20,
+                paddingBottom: 36,
+                minHeight: 160,
+              }}
+            >
+              {/* 헤더 */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <View>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: "#1a1a1a" }}>
+                    {popover?.date}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: "#999999", marginTop: 2 }}>
+                    wave {popover?.count ?? 0}개
+                  </Text>
+                </View>
+                <Pressable onPress={() => setPopover(null)} hitSlop={8}>
+                  <X size={18} color="#999999" />
+                </Pressable>
+              </View>
+
+              {/* wave 목록 */}
+              {popover?.waves === null ? (
+                <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", paddingVertical: 12 }}>
+                  불러오는 중...
+                </Text>
+              ) : popover?.count === 0 ? (
+                <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", paddingVertical: 12 }}>
+                  이 날은 wave가 없어요
+                </Text>
+              ) : (
+                popover?.waves?.map((w) => (
+                  <View
+                    key={w.id}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#f5f5f0",
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: "#1a1a1a", flex: 1 }} numberOfLines={1}>
+                      {w.paperName}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#999999", marginLeft: 8 }}>
+                      {w.completedAt}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
