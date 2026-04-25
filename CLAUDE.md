@@ -73,7 +73,7 @@
 ### 🔀 플랫폼별 (native 전용)
 | 경로 | 설명 |
 |---|---|
-| `lib/supabase.ts` | AsyncStorage 기반 클라이언트 (web은 @supabase/ssr + cookie) |
+| `lib/supabase.ts` | native는 AsyncStorage, web은 localStorage, static export의 Node 렌더 단계는 no-op storage |
 | `app/` | expo-router 라우팅 (web은 Next.js App Router) |
 | `components/` | RN View/Text 기반 UI (web은 div/span + Tailwind) |
 | `hooks/useBreakpoint.ts` | useWindowDimensions 기반 |
@@ -147,7 +147,14 @@ lib/
   - `dateRange` 동적 확장: 스와이프 타겟이 범위 밖이면 연속 날짜로 prepend/append
 - 드래그 리오더 라이브러리: `react-native-gesture-handler` + RN 기본 `Animated`
   - **주의**: Reanimated 4.2.1은 `react-native-css-interop`(NativeWind) 의존이라 제거 금지. 단, Expo Go 호환 이슈로 현재 Reanimated 플러그인은 `babel.config.js`에서 주석 처리됨 (Dev Build에서만 활성화).
+  - **주의**: `react-native-reanimated@4.2.1`은 iOS pod install에서 `react-native-worklets@0.8.x`를 거부한다. 현재 첫 빌드 브랜치에서는 `react-native-worklets@0.7.4`로 호환 고정.
   - `SortableList`의 `springAnims`는 반드시 **item key(id) 기반 `Map`**으로 인덱싱할 것. position 배열로 하면 리오더 후 translateY 바인딩이 어긋나 2번째 드래그가 깨짐.
+- 첫 빌드 검증 (`codex/first-build`):
+  - `npx tsc --noEmit` 통과
+  - `npx expo export --platform web` 통과, 산출물 `dist/`
+  - iOS simulator Debug 빌드 통과 (`npx expo run:ios`)
+  - 실제 iPhone Release 빌드/직접 설치/실행 통과 (`npx expo run:ios --configuration Release --device <UDID>` 후 `devicectl` 설치)
+  - 웹 export를 위해 `@expo/metro-runtime`, `react-dom`, `react-native-web` 추가
 
 ### 인증 정책
 - 로그인 필수 아님 — 첫 진입 시 Supabase anonymous auth로 비회원 세션 자동 생성
@@ -243,6 +250,8 @@ lib/
 - `npm run ios` : iOS 시뮬레이터
 - `npm run android` : Android 에뮬레이터
 - `npm run web` : 웹 브라우저 (Mac 확인용)
+- `npx expo export --platform web` : 웹 static export (`dist/`)
+- `npx expo run:ios --configuration Release --device <UDID>` : 실제 iPhone용 Release 빌드. Expo 래퍼 설치 단계가 pair record 문제로 실패하면 생성된 `Release-iphoneos/app.app`을 `xcrun devicectl device install app --device <UDID> <app.app>`로 직접 설치.
 
 ## Git 브랜치 작업 순서
 

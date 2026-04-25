@@ -20,7 +20,7 @@
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (핵심 인터랙션 완료, 세부 시나리오 검증 남음) |
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
-| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🔲 |
+| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🚧 빌드 검증 완료, 세부 검증 남음 |
 | T13 | 설정 화면 | ✅ 완료 |
 
 ---
@@ -209,11 +209,19 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_reason text;
 
 ### T12. 반응형 테스트 · RLS 검증 · softDelete 등 마무리
 
-| # | 시나리오 | 검증 포인트 |
-| --- | --- | --- |
-| T12-1 | 모바일 레이아웃 (< 768px) | 하단 탭바, 단일 컬럼, 콘텐츠 넘침 없음 |
-| T12-2 | 태블릿 레이아웃 (≥ 768px) | 좌측 사이드바(w-44) + 콘텐츠 영역 전환 확인 |
-| T12-3 | 맥 레이아웃 (≥ 1024px) | 좌측 사이드바(w-56) + 콘텐츠 영역 전환 확인 |
-| T12-4 | 모든 쿼리에 `user_id` 포함 | RLS 통과 여부 (다른 계정 데이터 접근 불가) |
-| T12-5 | 소프트 삭제 | 삭제 시 `deleted_at` 설정, 목록에서 제외 확인 |
-| T12-6 | 비로그인 → 로그인 시 데이터 연동 | 로컬 데이터 서버 마이그레이션 |
+| # | 시나리오 | 검증 포인트 | 상태 |
+| --- | --- | --- | --- |
+| T12-0 | 첫 빌드 검증 | `tsc`, web static export, iOS simulator Debug, 실제 iPhone Release 직접 설치/실행 | ✅ |
+| T12-1 | 모바일 레이아웃 (< 768px) | 하단 탭바, 단일 컬럼, 콘텐츠 넘침 없음 | 🔲 |
+| T12-2 | 태블릿 레이아웃 (≥ 768px) | 좌측 사이드바(w-44) + 콘텐츠 영역 전환 확인 | 🔲 |
+| T12-3 | 맥 레이아웃 (≥ 1024px) | 좌측 사이드바(w-56) + 콘텐츠 영역 전환 확인 | 🔲 |
+| T12-4 | 모든 쿼리에 `user_id` 포함 | RLS 통과 여부 (다른 계정 데이터 접근 불가) | 🔲 |
+| T12-5 | 소프트 삭제 | 삭제 시 `deleted_at` 설정, 목록에서 제외 확인 | 🔲 |
+| T12-6 | 비로그인 → 로그인 시 데이터 연동 | 로컬 데이터 서버 마이그레이션 | 🔲 |
+
+**T12-0 기록 (`codex/first-build`)**
+- `npx tsc --noEmit` 통과
+- `npx expo export --platform web` 통과, `dist/` 생성
+- iOS simulator Debug 빌드/실행 통과
+- 실제 iPhone Release 빌드/설치/실행 통과. Release 앱은 JS bundle 포함이라 Metro 서버 없이 실행 가능
+- iOS 빌드를 위해 `react-native-worklets@0.7.4`로 고정 (`react-native-reanimated@4.2.1`과 호환)
