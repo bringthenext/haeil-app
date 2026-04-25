@@ -60,10 +60,20 @@ export function GlobalSortableList<T>({
 
   const dragAnim = useRef(new Animated.Value(0)).current;
 
-  // 아이템별 spring Animated.Value (shift 표현)
-  const springAnims = useRef<Animated.Value[]>([]);
-  while (springAnims.current.length < data.length) {
-    springAnims.current.push(new Animated.Value(0));
+  // key(item.id)로 인덱싱해 리오더 후에도 item과 animation을 안정적으로 묶는다.
+  const springAnims = useRef<Map<string, Animated.Value>>(new Map());
+  const seenKeys = new Set<string>();
+  for (const item of data) {
+    const key = keyExtractor(item);
+    seenKeys.add(key);
+    if (!springAnims.current.has(key)) {
+      springAnims.current.set(key, new Animated.Value(0));
+    }
+  }
+  for (const key of Array.from(springAnims.current.keys())) {
+    if (!seenKeys.has(key)) {
+      springAnims.current.delete(key);
+    }
   }
 
   const dataRef         = useRef(data);
@@ -72,6 +82,8 @@ export function GlobalSortableList<T>({
   onDragEndRef.current  = onDragEnd;
   const getHeightRef    = useRef(getItemHeight);
   getHeightRef.current  = getItemHeight;
+  const keyExtractorRef = useRef(keyExtractor);
+  keyExtractorRef.current = keyExtractor;
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -105,7 +117,10 @@ export function GlobalSortableList<T>({
       let target = 0;
       if (from < insertIdx && i > from && i <= insertIdx) target = -activeH;
       else if (from > insertIdx && i < from && i >= insertIdx) target = activeH;
-      Animated.spring(springAnims.current[i], {
+      const key = keyExtractorRef.current(dataRef.current[i]);
+      const anim = springAnims.current.get(key);
+      if (!anim) continue;
+      Animated.spring(anim, {
         toValue: target,
         useNativeDriver: true,
         speed: 200,
@@ -197,8 +212,10 @@ export function GlobalSortableList<T>({
       {/* PanResponder를 이 View에 부착 */}
       <View {...panResponder.panHandlers}>
         {data.map((item, index) => {
+          const key = keyExtractor(item);
           const isActive = index === activeIndex;
           const draggable = !isDraggable || isDraggable(item);
+          const springAnim = springAnims.current.get(key)!;
 
           const dragHandlers: DragHandlers = {
             onLongPress: draggable
@@ -224,10 +241,10 @@ export function GlobalSortableList<T>({
 
           return (
             <Animated.View
-              key={keyExtractor(item)}
+              key={key}
               style={{
                 transform: [
-                  { translateY: isActive ? dragAnim : springAnims.current[index] },
+                  { translateY: isActive ? dragAnim : springAnim },
                 ],
                 zIndex: isActive ? 100 : 0,
                 opacity: 1,

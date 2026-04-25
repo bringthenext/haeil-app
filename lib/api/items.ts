@@ -125,15 +125,30 @@ export async function updateItemScheduledDate(
   if (error) throw error;
 }
 
+/** 아이템의 scheduled_date와 order를 함께 변경 */
+export async function updateItemDateAndOrder(
+  id: string,
+  scheduledDate: string,
+  order: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from("items")
+    .update({ scheduled_date: scheduledDate, order })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /** 아이템 순서 일괄 업데이트 */
 export async function updateItemOrders(
   updates: { id: string; order: number }[],
 ): Promise<void> {
-  await Promise.all(
+  const results = await Promise.all(
     updates.map(({ id, order }) =>
       supabase.from("items").update({ order }).eq("id", id),
     ),
   );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 /** 소프트 삭제 */
@@ -166,7 +181,9 @@ export async function getScheduledItemsWithSource(): Promise<ScheduledItemRow[]>
     .from("papers")
     .select("id, name, envelope_id")
     .in("id", paperIds)
+    .eq("status", "active")
     .is("deleted_at", null);
+  const activePaperIds = new Set((papers ?? []).map((p) => p.id));
   const paperMap = new Map((papers ?? []).map((p) => [p.id, p]));
 
   const envelopeIds = [...new Set((papers ?? []).filter((p) => p.envelope_id).map((p) => p.envelope_id as string))];
@@ -180,11 +197,13 @@ export async function getScheduledItemsWithSource(): Promise<ScheduledItemRow[]>
     (envelopes ?? []).forEach((e) => envelopeMap.set(e.id, e.name));
   }
 
-  return items.map((item) => {
-    if (!item.paper_id) return { ...item, source: "inbox" };
-    const paper = paperMap.get(item.paper_id);
-    if (!paper) return { ...item, source: "inbox" };
-    if (paper.envelope_id) return { ...item, source: envelopeMap.get(paper.envelope_id) ?? "inbox" };
-    return { ...item, source: paper.name ?? "inbox" };
-  });
+  return items
+    .filter((item) => !item.paper_id || activePaperIds.has(item.paper_id))
+    .map((item) => {
+      if (!item.paper_id) return { ...item, source: "inbox" };
+      const paper = paperMap.get(item.paper_id);
+      if (!paper) return { ...item, source: "inbox" };
+      if (paper.envelope_id) return { ...item, source: envelopeMap.get(paper.envelope_id) ?? "inbox" };
+      return { ...item, source: paper.name ?? "inbox" };
+    });
 }

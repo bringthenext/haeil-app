@@ -35,11 +35,13 @@ export async function addEnvelope(
 export async function updateEnvelopeOrders(
   updates: { id: string; order: number }[],
 ): Promise<void> {
-  await Promise.all(
+  const results = await Promise.all(
     updates.map(({ id, order }) =>
       supabase.from("envelopes").update({ order }).eq("id", id),
     ),
   );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 /** 봉투 소프트 삭제 */

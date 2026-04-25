@@ -19,8 +19,7 @@ import {
   addItem,
   getScheduledItemsWithSource,
   toggleItem,
-  updateItemOrders,
-  updateItemScheduledDate,
+  updateItemDateAndOrder,
 } from "@/lib/api/items";
 import { getPapers } from "@/lib/api/papers";
 import type { ScheduledItemRow } from "@/lib/api/items";
@@ -329,8 +328,6 @@ export default function ScheduleScreen() {
       }
     }
 
-    const prevItems = scheduledItems;
-
     // 낙관적 업데이트
     setScheduledItems((prev) =>
       prev.map((item) => {
@@ -339,16 +336,9 @@ export default function ScheduleScreen() {
       }),
     );
 
-    // API 병렬 호출
-    const dateChanges = updates.filter((u) => {
-      const old = prevItems.find((i) => i.id === u.id);
-      return old && old.scheduled_date !== u.newDate;
-    });
-
-    Promise.all([
-      ...dateChanges.map((u) => updateItemScheduledDate(u.id, u.newDate)),
-      updateItemOrders(updates.map((u) => ({ id: u.id, order: u.newOrder }))),
-    ]).catch(() => fetchAll());
+    Promise.all(
+      updates.map((u) => updateItemDateAndOrder(u.id, u.newDate, u.newOrder)),
+    ).catch(() => fetchAll());
   }
 
   // ── 아이템 추가 ─────────────────────────────────────────────────────────────

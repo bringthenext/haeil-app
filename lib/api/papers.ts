@@ -45,11 +45,13 @@ export async function completePaper(id: string, isDraft: boolean): Promise<void>
 export async function updatePaperOrders(
   updates: { id: string; order: number }[],
 ): Promise<void> {
-  await Promise.all(
+  const results = await Promise.all(
     updates.map(({ id, order }) =>
       supabase.from("papers").update({ order }).eq("id", id),
     ),
   );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 /** 즐겨찾기 토글 */
