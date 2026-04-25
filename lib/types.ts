@@ -56,6 +56,13 @@ export type Wave = {
   completed_at: string;
 };
 
+export type UserBadge = {
+  id: string;
+  user_id: string;
+  badge_id: string;
+  unlocked_at: string;
+};
+
 // ─── API 페이로드 타입 ────────────────────────────────────────────────────────
 
 export type AddItemPayload = {

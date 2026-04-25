@@ -48,6 +48,7 @@ export default function AppLayout() {
       <Tabs.Screen name="papers/index" options={{ title: "papers" }} />
       <Tabs.Screen name="schedule/index" options={{ title: "schedule" }} />
       <Tabs.Screen name="me/index" options={{ title: "me" }} />
+      <Tabs.Screen name="settings/index" options={{ href: null }} />
     </Tabs>
   );
 }
