@@ -66,11 +66,11 @@ export default function LoginScreen() {
           setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
           return;
         }
-        setTransitioning(true);
         Toast.show({
           type: "success",
           text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다.",
         });
+        router.replace("/(app)/inbox");
       }
     } catch {
       setError("오류가 발생했어요. 다시 시도해주세요.");
