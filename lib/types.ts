@@ -7,6 +7,15 @@ export type Profile = {
   id: string;
   username: string | null;
   avatar_url: string | null;
+  deletion_requested_at: string | null;
+  deletion_reason: string | null;
+};
+
+export type UserSettings = {
+  id: string;
+  week_start_day: "mon" | "sun";
+  created_at: string;
+  updated_at: string;
 };
 
 export type Envelope = {

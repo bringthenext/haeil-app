@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
 
 import { useSession } from "@/hooks/useSession";
+import { getProfile } from "@/lib/api/profile";
+import { getStreakStats, getWeekWaveStats, getEnvelopeWaveCounts } from "@/lib/api/stats";
 import { InsightCard } from "@/components/me/InsightCard";
 import { StreakCard } from "@/components/me/StreakCard";
 import { WeekWaveCard } from "@/components/me/WeekWaveCard";
@@ -19,60 +21,117 @@ export default function MeScreen() {
   const { session } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
 
+  const [username, setUsername] = useState<string | null>(null);
+  const [subGreeting, setSubGreeting] = useState<string>("");
   const isAnonymous = session?.user?.is_anonymous ?? false;
-  const email = isAnonymous ? "비회원" : (session?.user?.email ?? "알 수 없음");
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAnonymous) return;
+
+      getProfile().then((p) => setUsername(p?.username ?? null)).catch(console.error);
+
+      Promise.all([getStreakStats(), getWeekWaveStats(), getEnvelopeWaveCounts()])
+        .then(([streak, week, envelopes]) => {
+          const top = envelopes.sort((a, b) => b.count - a.count)[0];
+          if (streak.currentStreak > 0 && streak.currentStreak === streak.bestStreak && streak.currentStreak >= 7) {
+            setSubGreeting(`${streak.currentStreak}일 연속, 최고 기록이에요! 🏆`);
+          } else if (top && top.count > 0) {
+            setSubGreeting(`이번 주는 '${top.name}'에 집중하고 계시는군요`);
+          } else if (week.thisWeek > week.lastWeek && week.lastWeek > 0) {
+            setSubGreeting(`지난 주보다 wave가 늘었어요 📈`);
+          } else if (week.thisWeek > 0) {
+            setSubGreeting(`이번 주 ${week.thisWeek}개의 wave를 완료했어요`);
+          } else {
+            setSubGreeting(`오늘도 할 일을 해나가고 있어요`);
+          }
+        })
+        .catch(console.error);
+    }, [isAnonymous])
+  );
+
+  const displayName = isAnonymous
+    ? null
+    : username || session?.user?.email?.split("@")[0] || null;
 
   return (
     <SafeAreaView className="flex-1 bg-[#f5f5f0]">
       {/* 헤더 */}
-      <View className="flex-row items-center justify-between bg-[#f5f5f0] px-5 pb-3 pt-5">
-        <Text className="text-xl font-bold text-[#1a1a1a]">{email}</Text>
-        <Pressable
-          onPress={() => router.push("/(app)/settings")}
-          hitSlop={8}
-        >
-          <Settings size={20} color="#999999" />
-        </Pressable>
-      </View>
-
-      {/* 탭 토글 */}
-      <View className="flex-row border-b border-[#e5e5e0] bg-[#f5f5f0] px-5">
-        {(["dashboard", "challenges"] as Tab[]).map((tab) => (
-          <Pressable
-            key={tab}
-            onPress={() => setActiveTab(tab)}
-            className="mr-5 pb-2.5"
-          >
-            <Text
-              className={`text-sm font-medium ${
-                activeTab === tab ? "text-[#1a1a1a]" : "text-[#999999]"
-              }`}
-            >
-              {tab}
+      <View className="bg-[#f5f5f0] px-5 pb-4 pt-5">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1, flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginRight: 12 }}>
+            <Text style={{ fontSize: 22, fontWeight: "800", color: "#1a1a1a" }}>
+              {displayName ? `${displayName}님,` : "안녕하세요,"}
             </Text>
-            {activeTab === tab && (
-              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D9E75]" />
-            )}
+            {subGreeting ? (
+              <Text style={{ fontSize: 13, color: "#1a1a1a" }}>
+                {subGreeting}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable onPress={() => router.push("/(app)/settings")} hitSlop={8}>
+            <Settings size={20} color="#999999" />
           </Pressable>
-        ))}
+        </View>
       </View>
 
-      {/* 콘텐츠 */}
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-        {activeTab === "dashboard" ? (
-          <>
-            <InsightCard />
-            <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-              <StreakCard />
-              <WeekWaveCard />
-            </View>
-            <HeatmapCalendar />
-            <RoutineWaveChart />
-          </>
-        ) : (
-          <ChallengesTab />
-        )}
-      </ScrollView>
+      {isAnonymous ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40, gap: 16 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: "#1a1a1a", textAlign: "center" }}>
+            로그인하면 사용할 수 있어요
+          </Text>
+          <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", lineHeight: 20 }}>
+            streak, wave 통계, 챌린지 기록은{"\n"}로그인 후 확인할 수 있습니다.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(auth)/login")}
+            style={{ marginTop: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, backgroundColor: "#1a1a1a" }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "600", color: "#ffffff" }}>로그인 / 회원가입</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          {/* 탭 토글 */}
+          <View className="flex-row border-b border-[#e5e5e0] bg-[#f5f5f0] px-5">
+            {(["dashboard", "challenges"] as Tab[]).map((tab) => (
+              <Pressable
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                className="mr-5 pb-2.5"
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    activeTab === tab ? "text-[#1a1a1a]" : "text-[#999999]"
+                  }`}
+                >
+                  {tab}
+                </Text>
+                {activeTab === tab && (
+                  <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D9E75]" />
+                )}
+              </Pressable>
+            ))}
+          </View>
+
+          {/* 콘텐츠 */}
+          <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+            {activeTab === "dashboard" ? (
+              <>
+                <InsightCard />
+                <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+                  <StreakCard />
+                  <WeekWaveCard />
+                </View>
+                <HeatmapCalendar />
+                <RoutineWaveChart />
+              </>
+            ) : (
+              <ChallengesTab />
+            )}
+          </ScrollView>
+        </>
+      )}
     </SafeAreaView>
   );
 }

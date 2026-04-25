@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
-import { signInAnonymously, signInWithEmail, signUp } from "@/lib/api/auth";
+import { signInAnonymously, signInWithApple, signInWithEmail, signUp } from "@/lib/api/auth";
+import { cancelDeletion, updateUsername } from "@/lib/api/profile";
 import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabase";
 
@@ -26,11 +27,13 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
+
   const [error, setError] = useState("");
 
   // 실제 계정 세션이 있으면 inbox로 이동. anonymous 세션은 계정 로그인 UI를 보여준다.
@@ -55,8 +58,19 @@ export default function LoginScreen() {
       if (result.error) {
         setError(result.error.message);
       } else {
+        if (mode === "signup" && name.trim()) {
+          await updateUsername(name.trim());
+        }
+        const deletionState = await cancelDeletion();
+        if (deletionState === "expired") {
+          setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
+          return;
+        }
         setTransitioning(true);
-        Toast.show({ type: "success", text1: "로그인에 성공했습니다." });
+        Toast.show({
+          type: "success",
+          text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다.",
+        });
       }
     } catch {
       setError("오류가 발생했어요. 다시 시도해주세요.");
@@ -99,8 +113,9 @@ export default function LoginScreen() {
             refresh_token: refreshToken,
           });
           if (sessionError) throw sessionError;
-          setTransitioning(true);
-          Toast.show({ type: "success", text1: "로그인에 성공했습니다." });
+          const restored = await cancelDeletion();
+          Toast.show({ type: "success", text1: restored ? "계정이 활성화되었습니다." : "로그인에 성공했습니다." });
+          router.replace("/(app)/inbox");
         } else {
           const queryFragment = result.url.split("?")[1] ?? "";
           const qParams = new URLSearchParams(queryFragment);
@@ -112,8 +127,13 @@ export default function LoginScreen() {
               refresh_token: qRefresh,
             });
             if (sessionError) throw sessionError;
-            setTransitioning(true);
-            Toast.show({ type: "success", text1: "로그인에 성공했습니다." });
+            const deletionState = await cancelDeletion();
+            if (deletionState === "expired") {
+              setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
+              return;
+            }
+            Toast.show({ type: "success", text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다." });
+            router.replace("/(app)/inbox");
           }
         }
       }
@@ -125,6 +145,19 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAppleLogin = async () => {
+    setAppleLoading(true);
+    setError("");
+    try {
+      const { error: err } = await signInWithApple();
+      if (err) setError(err.message);
+    } catch {
+      setError("Apple 로그인에 실패했어요.");
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
   const handleGuestLogin = async () => {
     setGuestLoading(true);
     setError("");
@@ -133,8 +166,8 @@ export default function LoginScreen() {
       if (err) {
         setError(err.message);
       } else {
-        setTransitioning(true);
         Toast.show({ type: "success", text1: "비회원으로 시작합니다." });
+        router.replace("/(app)/inbox");
       }
     } catch {
       setError("비회원 로그인에 실패했어요.");
@@ -143,14 +176,6 @@ export default function LoginScreen() {
     }
   };
 
-  // 전환 중 로딩 오버레이
-  if (transitioning) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#1D9E75" size="large" />
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView
@@ -163,6 +188,18 @@ export default function LoginScreen() {
         <Text className="mb-10 text-sm text-muted-foreground">
           할 일이 재난처럼 몰려와도 잘 처리해나가자
         </Text>
+
+        {/* 이름 (회원가입 전용) */}
+        {mode === "signup" && (
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="이름"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="words"
+            className="mb-3 h-12 w-full max-w-sm rounded-xl border border-border bg-muted px-4 text-sm text-foreground"
+          />
+        )}
 
         {/* 이메일 */}
         <TextInput
@@ -233,6 +270,27 @@ export default function LoginScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* 애플 로그인 — iOS 전용 */}
+        {Platform.OS === "ios" && (
+          <TouchableOpacity
+            onPress={() => void handleAppleLogin()}
+            disabled={appleLoading}
+            className="mb-4 h-12 w-full max-w-sm flex-row items-center justify-center gap-2 rounded-xl bg-[#000000] disabled:opacity-50"
+            activeOpacity={0.8}
+          >
+            {appleLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Text style={{ fontSize: 16, color: "#ffffff", lineHeight: 20 }}></Text>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ffffff" }}>
+                  Apple로 계속하기
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* 모드 전환 */}
         <TouchableOpacity
