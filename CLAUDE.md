@@ -8,12 +8,12 @@
 - 관련 레포: `../haeil` (웹 Next.js 버전 — 레퍼런스 및 향후 웹 배포용)
 
 ## 기술 스택
-- Expo SDK 54 (managed workflow)
-- expo-router v4 (file-based routing)
+- Expo SDK 55 (managed workflow)
+- expo-router SDK 55 계열 (file-based routing)
 - NativeWind v4 (Tailwind CSS 문법)
 - TypeScript
 - Supabase (Auth + DB) — AsyncStorage 기반 세션
-- react-native-reanimated v3
+- react-native-reanimated v4
 - react-native-gesture-handler
 - expo-haptics
 - lucide-react-native
@@ -148,9 +148,10 @@ lib/
   - `SortableList`의 `springAnims`는 반드시 **item key(id) 기반 `Map`**으로 인덱싱할 것. position 배열로 하면 리오더 후 translateY 바인딩이 어긋나 2번째 드래그가 깨짐.
 
 ### 인증 정책
-- 로그인 필수 아님 — 비로그인으로 바로 inbox 사용 가능 (로컬 저장)
-- 설정(me 탭 > ⚙) 에서 로그인/회원가입 진입
-- 로그인 시 로컬 데이터 → 서버 연동 (오프라인 sync는 MVP 이후)
+- 로그인 필수 아님 — 첫 진입 시 Supabase anonymous auth로 비회원 세션 자동 생성
+- 설정(me 탭)에서 계정 로그인/회원가입 진입
+- 신규 세션(비회원 포함)에는 기본 envelope `Envelope`를 보장
+- anonymous 계정 → 실제 계정 전환/데이터 마이그레이션은 MVP 이후 별도 설계
 
 ### Me 화면 구성
 - 내부 탭: **dashboard | challenges**
