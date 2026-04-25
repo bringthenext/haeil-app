@@ -2,14 +2,17 @@ import { useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { Item } from "@/lib/types";
 import { ItemRow } from "./ItemRow";
+import { SortableList } from "./SortableList";
+import type { DragHandlers } from "./SortableList";
 
-type SortKey = "created_desc" | "created_asc" | "deadline_desc" | "deadline_asc";
+type SortKey = "custom" | "created_desc" | "created_asc" | "deadline_desc" | "deadline_asc";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "created_desc", label: "생성일 ↓" },
+  { key: "custom", label: "사용자 지정" },
   { key: "created_asc", label: "생성일 ↑" },
-  { key: "deadline_desc", label: "마감일 ↓" },
+  { key: "created_desc", label: "생성일 ↓" },
   { key: "deadline_asc", label: "마감일 ↑" },
+  { key: "deadline_desc", label: "마감일 ↓" },
 ];
 
 const VISIBLE_LIMIT = 10;
@@ -18,13 +21,33 @@ type Props = {
   items: Item[];
   previewText?: string;
   onToggle: (id: string, checked: boolean) => void;
+  /** inbox: item 분류 콜백 */
+  onClassifyItem?: (itemId: string) => void;
   /** papers draft용 인라인 추가 */
   onAddItem?: (content: string) => void;
   /** 완료 처리 콜백 */
   onComplete?: () => void;
+  /** 아이템 순서 변경 (custom 정렬 시 drag 활성화) */
+  onReorderItems?: (newItems: Item[]) => void;
+  /** 아이템 드래그 시작/종료 — 부모 ScrollView 잠금용 */
+  onItemDragStart?: () => void;
+  onItemDragEnd?: () => void;
+  /** 부모 ScrollView 동기 잠금/해제 (setNativeProps 기반) */
+  disableParentScroll?: () => void;
+  enableParentScroll?: () => void;
+  /** 드래그 중 화면 가장자리 도달 시 자동 스크롤 (delta px) */
+  scrollBy?: (delta: number) => void;
 };
 
-function sortUnchecked(items: Item[], sort: SortKey): Item[] {
+function sortItems(items: Item[], sort: SortKey): Item[] {
+  if (sort === "custom") {
+    return [...items].sort((a, b) => {
+      if (a.order !== null && b.order !== null) return a.order - b.order;
+      if (a.order !== null) return -1;
+      if (b.order !== null) return 1;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }
   return [...items].sort((a, b) => {
     switch (sort) {
       case "created_asc":
@@ -45,12 +68,51 @@ function sortUnchecked(items: Item[], sort: SortKey): Item[] {
   });
 }
 
-export function DraftCard({ items, previewText, onToggle, onAddItem, onComplete }: Props) {
+export function DraftCard({
+  items,
+  previewText,
+  onToggle,
+  onClassifyItem,
+  onAddItem,
+  onComplete,
+  onReorderItems,
+  onItemDragStart,
+  onItemDragEnd,
+  disableParentScroll,
+  enableParentScroll,
+  scrollBy,
+}: Props) {
   const [addText, setAddText] = useState("");
   const [sort, setSort] = useState<SortKey>("created_asc");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [isEscapingBottom, setIsEscapingBottom] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  // ── 분류하기 존 위치 측정 ────────────────────────────────────────────────────
+  // SortableList 컨테이너 ref — 드래그 시작 시 measureInWindow로 bottom Y 확정
+  const sortableWrapRef = useRef<View>(null);
+  const classifyZoneY = useRef<number | undefined>(undefined);
+
+  function handleItemDragStart() {
+    setIsDragActive(true);
+    onItemDragStart?.();
+    // 드래그 시작 → SortableList 바닥 = 분류하기 존 상단
+    // requestAnimationFrame: isDragActive state가 반영된 후 측정
+    requestAnimationFrame(() => {
+      sortableWrapRef.current?.measureInWindow((_x, y, _w, h) => {
+        classifyZoneY.current = y + h;
+      });
+    });
+  }
+
+  function handleItemDragEnd() {
+    setIsDragActive(false);
+    setIsEscapingBottom(false);
+    classifyZoneY.current = undefined;
+    onItemDragEnd?.();
+  }
 
   function handleAddSubmit() {
     const trimmed = addText.trim();
@@ -59,7 +121,7 @@ export function DraftCard({ items, previewText, onToggle, onAddItem, onComplete 
     setAddText("");
   }
 
-  const unchecked = sortUnchecked(items.filter((i) => !i.is_checked), sort);
+  const unchecked = sortItems(items.filter((i) => !i.is_checked), sort);
   const checked = [...items.filter((i) => i.is_checked)].sort(
     (a, b) => new Date(b.checked_at!).getTime() - new Date(a.checked_at!).getTime(),
   );
@@ -68,7 +130,10 @@ export function DraftCard({ items, previewText, onToggle, onAddItem, onComplete 
   const checkedCount = checked.length;
   const needsExpand = total > VISIBLE_LIMIT;
   const hiddenCount = total - VISIBLE_LIMIT;
-  const displayItems = isExpanded ? sorted : sorted.slice(0, VISIBLE_LIMIT);
+  const displayUnchecked = isExpanded ? unchecked : unchecked.slice(0, Math.min(VISIBLE_LIMIT, unchecked.length));
+  const displayChecked = isExpanded
+    ? checked
+    : checked.slice(0, Math.max(0, VISIBLE_LIMIT - unchecked.length));
   const isEmpty = total === 0 && !previewText;
 
   return (
@@ -126,7 +191,7 @@ export function DraftCard({ items, previewText, onToggle, onAddItem, onComplete 
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.08,
             shadowRadius: 4,
-            minWidth: 110,
+            minWidth: 120,
           }}
         >
           {SORT_OPTIONS.map((opt, idx) => (
@@ -172,8 +237,78 @@ export function DraftCard({ items, previewText, onToggle, onAddItem, onComplete 
         </View>
       )}
 
-      {/* 아이템 목록 */}
-      {displayItems.map((item) => (
+      {/* 미체크 아이템 — SortableList (RNGH 기반) */}
+      <View ref={sortableWrapRef}>
+        <SortableList
+          data={displayUnchecked}
+          keyExtractor={(item) => item.id}
+          renderItem={(item: Item, _: number, dh: DragHandlers) => (
+            <ItemRow
+              item={item}
+              onToggle={onToggle}
+              onClassify={onClassifyItem ? () => onClassifyItem(item.id) : undefined}
+              onLongPress={dh.onLongPress}
+              onPressOut={dh.onPressOut}
+              delayLongPress={dh.delayLongPress}
+            />
+          )}
+          onReorder={(newUnchecked) => {
+            setSort("custom"); // 드래그 리오더 시 자동으로 사용자 지정 전환
+            onReorderItems?.([...(newUnchecked as Item[]), ...checked]);
+          }}
+          itemHeight={32}
+          onDragStart={handleItemDragStart}
+          onDragEnd={handleItemDragEnd}
+          onEscapeBottom={onClassifyItem ? (item: Item) => { onClassifyItem(item.id); } : undefined}
+          onDragOutOfBounds={onClassifyItem ? (dir: "top" | "bottom" | null) => {
+            setIsEscapingBottom(dir === "bottom");
+          } : undefined}
+          onDragMoveY={onClassifyItem ? (absY: number) => {
+            if (classifyZoneY.current !== undefined) {
+              setIsEscapingBottom(absY >= classifyZoneY.current);
+            }
+          } : undefined}
+          classifyZoneYRef={onClassifyItem ? classifyZoneY : undefined}
+          disableParentScroll={disableParentScroll}
+          enableParentScroll={enableParentScroll}
+          scrollBy={scrollBy}
+        />
+      </View>
+
+      {/* 분류하기 드롭 존 — 드래그 중에만 표시 */}
+      {isDragActive && onClassifyItem && (
+        <View
+          style={{
+            marginTop: 6,
+            paddingVertical: 14,
+            borderRadius: 8,
+            borderWidth: isEscapingBottom ? 1.5 : 1,
+            borderStyle: "dashed",
+            borderColor: isEscapingBottom ? "#1D9E75" : "#aaa",
+            backgroundColor: isEscapingBottom ? "#E1F5EE" : "#f0f0eb",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              color: isEscapingBottom ? "#1D9E75" : "#666",
+              fontWeight: isEscapingBottom ? "700" : "500",
+              letterSpacing: 0.2,
+            }}
+          >
+            {isEscapingBottom ? "✓  여기서 손 떼면 분류" : "↓  분류하기"}
+          </Text>
+          {!isEscapingBottom && (
+            <Text style={{ fontSize: 10, color: "#999" }}>이 영역으로 드래그하세요</Text>
+          )}
+        </View>
+      )}
+
+      {/* 체크된 아이템 */}
+      {displayChecked.map((item) => (
         <ItemRow key={item.id} item={item} onToggle={onToggle} />
       ))}
 

@@ -80,6 +80,62 @@ export async function assignItemToPaper(
   if (error) throw error;
 }
 
+/** inbox draft item을 특정 envelope의 draft paper로 분류 (없으면 paper 생성) */
+export async function classifyItemToEnvelope(
+  itemId: string,
+  envelopeId: string,
+  userId: string,
+): Promise<void> {
+  const { data: drafts } = await supabase
+    .from("papers")
+    .select("id")
+    .eq("envelope_id", envelopeId)
+    .eq("user_id", userId)
+    .is("name", null)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .limit(1);
+
+  let paperId: string;
+  if (drafts && drafts.length > 0) {
+    paperId = drafts[0].id;
+  } else {
+    const { data: newPaper, error } = await supabase
+      .from("papers")
+      .insert({ user_id: userId, envelope_id: envelopeId, name: null, status: "active" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    paperId = newPaper.id;
+  }
+
+  const { error } = await supabase.from("items").update({ paper_id: paperId }).eq("id", itemId);
+  if (error) throw error;
+}
+
+/** 아이템의 scheduled_date 변경 (날짜 이동 시 order 초기화) */
+export async function updateItemScheduledDate(
+  id: string,
+  scheduledDate: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("items")
+    .update({ scheduled_date: scheduledDate, order: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** 아이템 순서 일괄 업데이트 */
+export async function updateItemOrders(
+  updates: { id: string; order: number }[],
+): Promise<void> {
+  await Promise.all(
+    updates.map(({ id, order }) =>
+      supabase.from("items").update({ order }).eq("id", id),
+    ),
+  );
+}
+
 /** 소프트 삭제 */
 export async function deleteItem(id: string): Promise<void> {
   const { error } = await supabase
@@ -87,4 +143,48 @@ export async function deleteItem(id: string): Promise<void> {
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+}
+
+export type ScheduledItemRow = Item & { source: string };
+
+/** scheduled_date가 있는 전사 아이템 + 출처(source) 조회 */
+export async function getScheduledItemsWithSource(): Promise<ScheduledItemRow[]> {
+  const { data: items, error } = await supabase
+    .from("items")
+    .select("*")
+    .not("scheduled_date", "is", null)
+    .is("deleted_at", null)
+    .order("scheduled_date")
+    .order("created_at");
+  if (error) throw error;
+  if (!items?.length) return [];
+
+  const paperIds = [...new Set(items.filter((i) => i.paper_id).map((i) => i.paper_id as string))];
+  if (!paperIds.length) return items.map((i) => ({ ...i, source: "inbox" }));
+
+  const { data: papers } = await supabase
+    .from("papers")
+    .select("id, name, envelope_id")
+    .in("id", paperIds)
+    .is("deleted_at", null);
+  const paperMap = new Map((papers ?? []).map((p) => [p.id, p]));
+
+  const envelopeIds = [...new Set((papers ?? []).filter((p) => p.envelope_id).map((p) => p.envelope_id as string))];
+  const envelopeMap = new Map<string, string>();
+  if (envelopeIds.length) {
+    const { data: envelopes } = await supabase
+      .from("envelopes")
+      .select("id, name")
+      .in("id", envelopeIds)
+      .is("deleted_at", null);
+    (envelopes ?? []).forEach((e) => envelopeMap.set(e.id, e.name));
+  }
+
+  return items.map((item) => {
+    if (!item.paper_id) return { ...item, source: "inbox" };
+    const paper = paperMap.get(item.paper_id);
+    if (!paper) return { ...item, source: "inbox" };
+    if (paper.envelope_id) return { ...item, source: envelopeMap.get(paper.envelope_id) ?? "inbox" };
+    return { ...item, source: paper.name ?? "inbox" };
+  });
 }
