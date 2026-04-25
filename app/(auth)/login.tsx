@@ -33,9 +33,9 @@ export default function LoginScreen() {
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
 
-  // 세션 생기면 inbox로 이동
+  // 실제 계정 세션이 있으면 inbox로 이동. anonymous 세션은 계정 로그인 UI를 보여준다.
   useEffect(() => {
-    if (!sessionLoading && session) {
+    if (!sessionLoading && session && !session.user.is_anonymous) {
       router.replace("/(app)/inbox");
     }
   }, [session, sessionLoading]);

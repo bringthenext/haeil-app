@@ -1,4 +1,5 @@
 import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
@@ -6,6 +7,7 @@ import { signOut } from "@/lib/api/auth";
 import { useSession } from "@/hooks/useSession";
 
 export default function MeScreen() {
+  const router = useRouter();
   const { session } = useSession();
   const isAnonymous = session?.user?.is_anonymous ?? false;
 
@@ -39,14 +41,23 @@ export default function MeScreen() {
           </Text>
         </View>
 
-        {/* 로그아웃 */}
-        <TouchableOpacity
-          onPress={handleSignOut}
-          className="items-center rounded-xl border border-red-200 bg-red-50 py-3"
-          activeOpacity={0.7}
-        >
-          <Text className="text-sm font-medium text-red-500">로그아웃</Text>
-        </TouchableOpacity>
+        {isAnonymous ? (
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/login")}
+            className="items-center rounded-xl bg-primary py-3"
+            activeOpacity={0.7}
+          >
+            <Text className="text-sm font-medium text-primary-foreground">계정으로 로그인</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={handleSignOut}
+            className="items-center rounded-xl border border-red-200 bg-red-50 py-3"
+            activeOpacity={0.7}
+          >
+            <Text className="text-sm font-medium text-red-500">로그아웃</Text>
+          </TouchableOpacity>
+        )}
 
         {/* TODO: T08에서 구현 */}
         <View className="mt-8 flex-1 items-center justify-center">
