@@ -127,15 +127,17 @@ lib/
 | T08 | Papers — 완료 탭 & 즐겨찾기 ★ | ✅ 완료 |
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (주간 캘린더 + 드래그 리오더 + 주간 스와이프 연동 완료) |
-| T11 | Me — Dashboard & Challenges | 🔲 |
+| T11 | Me — Dashboard & Challenges | ✅ 완료 |
 | T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | 🔲 |
+| T13 | 설정 화면 (계정·로그아웃·탈퇴·한 주 시작·약관) | ✅ 완료 |
 
 ### 작업 순서
 - **1차** `feat/envelope-wave-schedule`: T03 · T05 · T09
 - **2차**: T10 · T11 · T12
 
-### 현재 진행 상황 (2026-04-25 기준)
-- 브랜치: `feat/envelope-wave-schedule`
+### 현재 진행 상황 (2026-04-26 기준)
+- T13 (설정 화면): ✅ 완료 (main 머지됨)
+- T11 (Me Dashboard & Challenges): ✅ 완료 (main 머지됨)
 - Schedule 탭 (T10) 핵심 인터랙션 구현 완료:
   - `WeekCalendarBar` + 월 선택 모달
   - 날짜 섹션별 아이템 리스트 (헤더 + 아이템 단일 배열)
@@ -241,3 +243,14 @@ lib/
 - `npm run ios` : iOS 시뮬레이터
 - `npm run android` : Android 에뮬레이터
 - `npm run web` : 웹 브라우저 (Mac 확인용)
+
+## Git 브랜치 작업 순서
+
+**새 브랜치를 딸 때 반드시 이 순서로:**
+```bash
+git checkout main
+git pull origin main   # ← 이걸 빠뜨리면 GitHub에 머지된 최신 코드 없이 브랜치가 생김
+git checkout -b feat/xxx
+```
+
+GitHub에서 PR 머지 후 로컬 main은 자동으로 업데이트되지 않는다. `git pull origin main` 없이 바로 브랜치를 따면 머지된 커밋이 빠진 낡은 base에서 시작하게 된다.

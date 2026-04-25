@@ -19,8 +19,9 @@
 | T08 | Papers — 완료 탭 & 즐겨찾기 | ✅ 완료 |
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (핵심 인터랙션 완료, 세부 시나리오 검증 남음) |
-| T11 | Me — Dashboard & Challenges | 🔲 |
+| T11 | Me — Dashboard & Challenges | ✅ 완료 |
 | T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🔲 |
+| T13 | 설정 화면 | ✅ 완료 |
 
 ---
 
@@ -144,15 +145,65 @@
 
 ---
 
-### T11. Me — Dashboard
+### T11. Me — Dashboard ✅
 
 | # | 시나리오 | 검증 포인트 |
 | --- | --- | --- |
 | T11-1 | streak 카드 | item 체크일 기준 연속 일수, 최장 기록, 최근 30일 |
 | T11-2 | 이번 주 카드 | wave 수 + 지난 주 대비 증감 |
-| T11-3 | 연간 히트맵 | wave 수 기준, 좌우 스크롤, 월 라벨 |
+| T11-3 | 연간 히트맵 | wave 수 기준, 좌우 스크롤, 월 라벨, 셀 탭 시 wave 목록 팝오버 |
 | T11-4 | 루틴별 누적 wave | envelope별 bar chart |
 | T11-5 | 연도 네비게이터 | 미래 연도 이동 불가 |
+| T11-6 | 인사이트 카드 | streak/wave 기반 동적 문구 |
+| T11-7 | Challenges 탭 | 카테고리별 뱃지(31개), 달성/미달성 구분 |
+| T11-8 | 히든 뱃지 | 일반 뱃지 5/10/15/20개 달성 시 해금 |
+
+---
+
+---
+
+### T13. 설정 화면 ✅
+
+> 브랜치: `feat/settings` → main 머지  
+> 약관·개인정보·라이선스는 인앱 텍스트 페이지.
+
+**구현 파일**
+- `app/(app)/settings/index.tsx` — 메인 설정 화면
+- `app/(app)/settings/terms.tsx` — 서비스 이용약관
+- `app/(app)/settings/privacy.tsx` — 개인정보 처리방침
+- `app/(app)/settings/licenses.tsx` — 오픈소스 라이선스
+- `lib/api/profile.ts` — `getProfile` / `updateUsername` / `requestAccountDeletion(reason?)` / `cancelDeletion`
+- `lib/api/settings.ts` — `getSettings` / `updateWeekStartDay`
+- `hooks/useWeekStart.ts` — `user_settings`에서 week_start_day 읽기, `reload()` 노출
+- `app/(auth)/login.tsx` — 이름 입력(회원가입), 탈퇴 복구(`cancelDeletion`), Apple 로그인 버튼(stub)
+- `app/index.tsx` — 로그아웃 후 anonymous 재생성 방지 (`SKIP_ANONYMOUS_KEY` 플래그)
+
+**DB 변경**
+```sql
+-- user_settings 테이블 (앱 환경설정)
+CREATE TABLE user_settings (
+  id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  week_start_day text NOT NULL DEFAULT 'mon' CHECK (week_start_day IN ('mon', 'sun')),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+-- profiles 테이블 추가 컬럼
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_reason text;
+```
+
+| # | 시나리오 | 검증 포인트 | 상태 |
+| --- | --- | --- | --- |
+| T13-1 | 설정 화면 진입 (me 탭 우상단 톱니바퀴) | 계정·앱 설정·법적 고지·앱 정보 섹션 노출 | ✅ |
+| T13-2 | 계정 섹션 — 이름 편집, 이메일/로그인 방법 표시 | 인라인 편집 + Toast, Google/이메일 구분 | ✅ |
+| T13-3 | 로그아웃 | 확인 Alert → signOut → 로그인 화면 이동 | ✅ |
+| T13-4 | 회원 탈퇴 | 사유 입력 모달 → 2단계 확인 → 30일 유예 비활성화 → login 이동 | ✅ |
+| T13-5 | 한 주 시작 기준 토글 (월/일) | `user_settings.week_start_day` 저장, Schedule 탭 포커스 시 반영 | ✅ |
+| T13-6 | 서비스 이용약관 | 인앱 텍스트 페이지 push | ✅ |
+| T13-7 | 개인정보 처리방침 | 인앱 텍스트 페이지 push | ✅ |
+| T13-8 | 오픈소스 라이선스 | 인앱 텍스트 페이지 push | ✅ |
+| T13-9 | 앱 버전 표시 | 하드코딩 `1.0.0` | ✅ |
+| T13-10 | 비회원 상태 분기 | me 탭 — dashboard/challenges 잠금, 로그인 유도. 설정은 동작 | ✅ |
+| T13-11 | Apple 로그인 버튼 (iOS 전용, stub) | 버튼 UI 노출, 실제 구현은 별도 작업 | ✅ |
 
 ---
 

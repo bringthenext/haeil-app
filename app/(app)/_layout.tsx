@@ -49,6 +49,9 @@ export default function AppLayout() {
       <Tabs.Screen name="schedule/index" options={{ title: "schedule" }} />
       <Tabs.Screen name="me/index" options={{ title: "me" }} />
       <Tabs.Screen name="settings/index" options={{ href: null }} />
+      <Tabs.Screen name="settings/terms" options={{ href: null }} />
+      <Tabs.Screen name="settings/privacy" options={{ href: null }} />
+      <Tabs.Screen name="settings/licenses" options={{ href: null }} />
     </Tabs>
   );
 }

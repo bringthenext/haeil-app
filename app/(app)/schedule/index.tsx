@@ -15,6 +15,7 @@ import { GlobalSortableList, type DragHandlers } from "@/components/haeil/Global
 import { InputBar } from "@/components/haeil/InputBar";
 import { WeekCalendarBar } from "@/components/haeil/WeekCalendarBar";
 import { useSession } from "@/hooks/useSession";
+import { useWeekStart } from "@/hooks/useWeekStart";
 import {
   addItem,
   getScheduledItemsWithSource,
@@ -102,6 +103,9 @@ function SectionHeader({ date, todayStr }: { date: string; todayStr: string }) {
 // ─── 메인 화면 ────────────────────────────────────────────────────────────────
 export default function ScheduleScreen() {
   const { userId } = useSession();
+  const { weekStart, reload: reloadWeekStart } = useWeekStart();
+
+  useFocusEffect(useCallback(() => { reloadWeekStart(); }, [reloadWeekStart]));
 
   const [scheduledItems, setScheduledItems] = useState<ScheduledItemRow[]>([]);
   const [activePapers, setActivePapers]     = useState<{ id: string; name: string }[]>([]);
@@ -484,6 +488,7 @@ export default function ScheduleScreen() {
           selectedDate={selectedDate}
           onSelectDate={handleSelectDate}
           onWeekChange={handleWeekChange}
+          weekStart={weekStart}
         />
 
         <View style={{ height: 0.5, backgroundColor: "#eee", marginHorizontal: 12, marginBottom: 4 }} />

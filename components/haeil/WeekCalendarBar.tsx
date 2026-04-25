@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Item } from "@/lib/types";
 
-const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getDay() 기준
 const RANGE = 104;
 const TOTAL = RANGE * 2 + 1;
 const INITIAL = RANGE;
@@ -20,8 +20,8 @@ type Props = {
   items: Item[];
   selectedDate: string | null;
   onSelectDate: (date: string | null) => void;
-  /** 주간 페이지가 바뀔 때마다 호출 (momentum 종료 시점) */
   onWeekChange?: (weekDates: Date[]) => void;
+  weekStart?: "mon" | "sun";
 };
 
 function toDateStr(d: Date): string {
@@ -32,29 +32,29 @@ function toDateStr(d: Date): string {
 }
 
 function dayLabel(d: Date): string {
-  return DAY_LABELS[(d.getDay() + 6) % 7];
+  return DAY_NAMES[d.getDay()];
 }
 
-function getMondayOf(date: Date): Date {
+function getWeekStartOf(date: Date, weekStart: "mon" | "sun"): Date {
   const d = new Date(date);
-  const diff = (d.getDay() + 6) % 7;
+  const diff = weekStart === "mon" ? (d.getDay() + 6) % 7 : d.getDay();
   d.setDate(d.getDate() - diff);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-function getWeekDates(offset: number): Date[] {
-  const monday = getMondayOf(new Date());
-  monday.setDate(monday.getDate() + offset * 7);
+function getWeekDates(offset: number, weekStart: "mon" | "sun"): Date[] {
+  const start = getWeekStartOf(new Date(), weekStart);
+  start.setDate(start.getDate() + offset * 7);
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
     return d;
   });
 }
 
-function getWeekLabel(offset: number): string {
-  const dates = getWeekDates(offset);
+function getWeekLabel(offset: number, weekStart: "mon" | "sun" = "mon"): string {
+  const dates = getWeekDates(offset, weekStart);
   const m = dates[0].getMonth() + 1;
   const d = dates[0].getDate();
   return `${m}월 ${d}일 주`;
@@ -73,7 +73,7 @@ function generateMonths(): { year: number; month: number }[] {
 const ALL_MONTHS = generateMonths();
 const ALL_WEEKS = Array.from({ length: TOTAL }, (_, i) => i - RANGE);
 
-export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChange }: Props) {
+export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChange, weekStart = "mon" }: Props) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const weekListRef = useRef<FlatList>(null);
@@ -89,7 +89,7 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
     items.map((i) => i.scheduled_date).filter(Boolean) as string[],
   );
 
-  const currentWeekFirstDay = getWeekDates(currentOffset)[0];
+  const currentWeekFirstDay = getWeekDates(currentOffset, weekStart)[0];
   const nowMonth = new Date().getMonth() + 1;
   const nowYear = new Date().getFullYear();
 
@@ -124,7 +124,7 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
 
   function jumpToMonth(year: number, month: number) {
     const target = new Date(year, month - 1, 1);
-    const todayMonday = getMondayOf(new Date());
+    const todayMonday = getWeekStartOf(new Date(), weekStart);
     const diffMs = target.getTime() - todayMonday.getTime();
     const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
     const clampedOffset = Math.max(-RANGE, Math.min(RANGE, diffWeeks));
@@ -150,7 +150,7 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
           style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
         >
           <Text style={{ fontSize: 11, color: "#888" }}>
-            {getWeekLabel(currentOffset)}
+            {getWeekLabel(currentOffset, weekStart)}
           </Text>
           <Text style={{ fontSize: 9, color: "#bbb" }}>∨</Text>
         </Pressable>
@@ -181,10 +181,10 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
         onMomentumScrollEnd={(e) => {
           const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
           setCurrentIndex(newIndex);
-          onWeekChange?.(getWeekDates(newIndex - INITIAL));
+          onWeekChange?.(getWeekDates(newIndex - INITIAL, weekStart));
         }}
         renderItem={({ item: offset }) => {
-          const weekDates = getWeekDates(offset);
+          const weekDates = getWeekDates(offset, weekStart);
           return (
             <View style={{ width, flexDirection: "row", paddingHorizontal: 12, paddingBottom: 4 }}>
               {weekDates.map((d) => {
