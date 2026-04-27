@@ -23,6 +23,8 @@ import {
   updateItemDateAndOrder,
 } from "@/lib/api/items";
 import { getPapers } from "@/lib/api/papers";
+import { useOffline } from "@/contexts/OfflineContext";
+import { enqueue, generateId } from "@/lib/offlineQueue";
 import { borderWidth, colors, fontSize, radius, spacing } from "@/lib/tokens";
 import type { ScheduledItemRow } from "@/lib/api/items";
 
@@ -100,6 +102,7 @@ function SectionHeader({ date, todayStr }: { date: string; todayStr: string }) {
 export default function ScheduleScreen() {
   const { userId } = useSession();
   const { weekStart, reload: reloadWeekStart } = useWeekStart();
+  const { isOnline, enqueueRefresh } = useOffline();
 
   useFocusEffect(useCallback(() => { reloadWeekStart(); }, [reloadWeekStart]));
 
@@ -297,6 +300,11 @@ export default function ScheduleScreen() {
     setScheduledItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, is_checked: checked, checked_at: checkedAt } : i)),
     );
+    if (!isOnline) {
+      await enqueue({ type: "toggleItem", id, checked, checkedAt });
+      enqueueRefresh();
+      return;
+    }
     try {
       await toggleItem(id, checked);
     } catch {
@@ -304,7 +312,7 @@ export default function ScheduleScreen() {
         prev.map((i) => (i.id === id ? { ...i, is_checked: !checked, checked_at: null } : i)),
       );
     }
-  }, []);
+  }, [isOnline]);
 
   // ── 드래그 완료 → 날짜 + 순서 일괄 갱신 ────────────────────────────────────
   // 새 배열을 순서대로 순회:
@@ -348,17 +356,27 @@ export default function ScheduleScreen() {
     paperId: string | null,
   ) {
     if (!userId || !scheduledDate) return;
+    const id = generateId();
+    const payload = { content, paper_id: paperId, scheduled_date: scheduledDate };
+    const source = paperId ? (activePapers.find((p) => p.id === paperId)?.name ?? "inbox") : "inbox";
+    const optimistic: ScheduledItemRow = {
+      id, user_id: userId, paper_id: paperId, content,
+      is_checked: false, scheduled_date: scheduledDate, order: null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      checked_at: null, deleted_at: null, source,
+    };
+    setScheduledItems((prev) => [...prev, optimistic]);
+    if (!isOnline) {
+      await enqueue({ type: "addItem", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addItem(userId, {
-        content,
-        paper_id: paperId,
-        scheduled_date: scheduledDate,
-      });
-      const source = paperId
-        ? (activePapers.find((p) => p.id === paperId)?.name ?? "inbox")
-        : "inbox";
-      setScheduledItems((prev) => [...prev, { ...created, source }]);
-    } catch { /* silent */ }
+      const created = await addItem(userId, payload, id);
+      setScheduledItems((prev) => prev.map((i) => (i.id === id ? { ...created, source } : i)));
+    } catch {
+      setScheduledItems((prev) => prev.filter((i) => i.id !== id));
+    }
   }
 
   // ── 스케줄 아이템 행 렌더 ───────────────────────────────────────────────────

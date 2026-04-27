@@ -40,6 +40,8 @@ import { addPaper, completePaper, deletePaper, getPapers, updatePaperName, updat
 import { SortableList } from "@/components/haeil/SortableList";
 import { addWave, getRoutineWaveCountsByPaperIds } from "@/lib/api/waves";
 import { getEnvelopes } from "@/lib/api/envelopes";
+import { useOffline } from "@/contexts/OfflineContext";
+import { enqueue, generateId } from "@/lib/offlineQueue";
 import type { Envelope, Item, Paper } from "@/lib/types";
 
 const COMPOSER_PREVIEW_INSET = 180;
@@ -53,9 +55,10 @@ function makeOptimistic(
   content: string,
   paperId: string | null,
   scheduledDate: string | null = null,
+  id?: string,
 ): Item {
   return {
-    id: `temp-${Date.now()}`,
+    id: id ?? generateId(),
     user_id: userId,
     paper_id: paperId,
     content,
@@ -71,6 +74,7 @@ function makeOptimistic(
 
 export default function InboxScreen() {
   const { userId } = useSession();
+  const { isOnline, enqueueRefresh } = useOffline();
 
   // envelope_id=null 인 items (paper_id=null)
   const [draftItems, setDraftItems] = useState<Item[]>([]);
@@ -170,10 +174,17 @@ export default function InboxScreen() {
   // ── Draft item 추가 ──────────────────────────────────────────────────────────
   async function handleAddToDraft(content: string, scheduledDate: string | null) {
     if (!userId) return;
-    const opt = makeOptimistic(userId, content, null, scheduledDate);
+    const id = generateId();
+    const opt = makeOptimistic(userId, content, null, scheduledDate, id);
     setDraftItems((prev) => [opt, ...prev]);
+    const payload = { content, paper_id: null as null, scheduled_date: scheduledDate };
+    if (!isOnline) {
+      await enqueue({ type: "addItem", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addItem(userId, { content, paper_id: null, scheduled_date: scheduledDate });
+      const created = await addItem(userId, payload, id);
       setDraftItems((prev) => prev.map((i) => (i.id === opt.id ? created : i)));
     } catch {
       setDraftItems((prev) => prev.filter((i) => i.id !== opt.id));
@@ -184,10 +195,17 @@ export default function InboxScreen() {
   async function handleAddToPaper(paper: Paper, content: string, scheduledDate: string | null) {
     if (!userId) return;
     const pid = paper.id;
-    const opt = makeOptimistic(userId, content, pid, scheduledDate);
+    const id = generateId();
+    const opt = makeOptimistic(userId, content, pid, scheduledDate, id);
     setItemsByPaperId((p) => ({ ...p, [pid]: [...(p[pid] ?? []), opt] }));
+    const payload = { content, paper_id: pid, scheduled_date: scheduledDate };
+    if (!isOnline) {
+      await enqueue({ type: "addItem", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addItem(userId, { content, paper_id: pid, scheduled_date: scheduledDate });
+      const created = await addItem(userId, payload, id);
       setItemsByPaperId((p) => ({
         ...p, [pid]: (p[pid] ?? []).map((i) => (i.id === opt.id ? created : i)),
       }));
@@ -245,6 +263,11 @@ export default function InboxScreen() {
     setDraftItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, is_checked: checked, checked_at: checkedAt } : i)),
     );
+    if (!isOnline) {
+      await enqueue({ type: "toggleItem", id, checked, checkedAt });
+      enqueueRefresh();
+      return;
+    }
     try {
       await toggleItem(id, checked);
     } catch {
@@ -263,6 +286,11 @@ export default function InboxScreen() {
         i.id === itemId ? { ...i, is_checked: checked, checked_at: checkedAt } : i,
       ),
     }));
+    if (!isOnline) {
+      await enqueue({ type: "toggleItem", id: itemId, checked, checkedAt });
+      enqueueRefresh();
+      return;
+    }
     try {
       await toggleItem(itemId, checked);
     } catch {
@@ -294,6 +322,12 @@ export default function InboxScreen() {
     } else {
       setDraftItems((prev) => prev.filter((i) => i.id !== item.id));
     }
+    if (!isOnline) {
+      await enqueue({ type: "deleteItem", id: item.id });
+      enqueueRefresh();
+      Toast.show({ type: "success", text1: "삭제되었습니다." });
+      return;
+    }
     try {
       await deleteItem(item.id);
       Toast.show({ type: "success", text1: "삭제되었습니다." });
@@ -308,6 +342,12 @@ export default function InboxScreen() {
     setInboxPapers((prev) => prev.filter((p) => p.id !== paper.id));
     if (expandedPaperId === paper.id) setExpandedPaperId(null);
     if (paperEditModeId === paper.id) setPaperEditModeId(null);
+    if (!isOnline) {
+      await enqueue({ type: "deletePaper", id: paper.id });
+      enqueueRefresh();
+      Toast.show({ type: "success", text1: "삭제되었습니다.", text2: "연결 복구 시 서버에 반영돼요." });
+      return;
+    }
     try {
       await deletePaper(paper.id);
       Toast.show({ type: "success", text1: "삭제되었습니다.", text2: "설정 > 최근 삭제됨에서 30일 내 복구할 수 있어요." });
@@ -390,12 +430,30 @@ export default function InboxScreen() {
     setIsAddingPaper(false);
     setNewPaperName("");
     if (!name || !userId) return;
+    const id = generateId();
+    const payload = { name, envelope_id: null as null, status: "active" as const };
+    const optimisticPaper: Paper = {
+      id, user_id: userId, name, envelope_id: null, status: "active",
+      is_favorite: false, parent_paper_id: null, order: null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      completed_at: null, deleted_at: null,
+    };
+    setInboxPapers((prev) => [...prev, optimisticPaper]);
+    setItemsByPaperId((prev) => ({ ...prev, [id]: [] }));
+    setExpandedPaperId(id);
+    if (!isOnline) {
+      await enqueue({ type: "addPaper", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addPaper(userId, { name, envelope_id: null, status: "active" });
-      setInboxPapers((prev) => [...prev, created]);
-      setItemsByPaperId((prev) => ({ ...prev, [created.id]: [] }));
-      setExpandedPaperId(created.id);
-    } catch { /* silent */ }
+      const created = await addPaper(userId, payload, id);
+      setInboxPapers((prev) => prev.map((p) => (p.id === id ? created : p)));
+    } catch {
+      setInboxPapers((prev) => prev.filter((p) => p.id !== id));
+      setItemsByPaperId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setExpandedPaperId(null);
+    }
   }
 
   // ── Draft item 순서 변경 ─────────────────────────────────────────────────────
@@ -428,6 +486,7 @@ export default function InboxScreen() {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date().toISOString();
+    const isDraft = paper.name === null;
     setInboxPapers((prev) =>
       prev.map((p) =>
         p.id === paper.id
@@ -436,8 +495,13 @@ export default function InboxScreen() {
       ),
     );
     if (expandedPaperId === paper.id) setExpandedPaperId(null);
+    if (!isOnline) {
+      await enqueue({ type: "completePaper", id: paper.id, isDraft });
+      enqueueRefresh();
+      return;
+    }
     try {
-      await completePaper(paper.id, paper.name === null);
+      await completePaper(paper.id, isDraft);
       await addWave(userId, paper.id);
       setWaveCounts((prev) => {
         const next = { ...prev, [paper.id]: (prev[paper.id] ?? 0) + 1 };

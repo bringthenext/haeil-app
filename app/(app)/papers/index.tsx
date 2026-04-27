@@ -35,6 +35,8 @@ import { addEnvelope, deleteEnvelope, getEnvelopes, updateEnvelopeName, updateEn
 import { addPaper, clonePaper, completePaper, deletePaper, getPapers, toggleFavorite, updatePaperName, updatePaperOrders } from "@/lib/api/papers";
 import { addWave, getRoutineWaveCountsByPaperIds } from "@/lib/api/waves";
 import { SortableList } from "@/components/haeil/SortableList";
+import { useOffline } from "@/contexts/OfflineContext";
+import { enqueue, generateId } from "@/lib/offlineQueue";
 import type { Envelope, Item, Paper } from "@/lib/types";
 
 const COMPOSER_PREVIEW_INSET = 180;
@@ -48,9 +50,10 @@ function makeOptimistic(
   content: string,
   paperId: string,
   scheduledDate: string | null = null,
+  id?: string,
 ): Item {
   return {
-    id: `temp-${Date.now()}`,
+    id: id ?? generateId(),
     user_id: userId,
     paper_id: paperId,
     content,
@@ -66,6 +69,7 @@ function makeOptimistic(
 
 export default function PapersScreen() {
   const { userId } = useSession();
+  const { isOnline, enqueueRefresh } = useOffline();
   const [contentWidth, setContentWidth] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
   const pagerHeight = useRef(0);
@@ -252,11 +256,27 @@ export default function PapersScreen() {
     setIsAddingEnvelope(false);
     setNewEnvName("");
     if (!name || !userId) return;
+    const id = generateId();
+    const payload = { name };
+    const optimisticEnv: Envelope = {
+      id, user_id: userId, name, color: null, order: null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted_at: null,
+    };
+    setEnvelopes((prev) => [...prev, optimisticEnv]);
+    setSelectedEnvId(id);
+    if (!isOnline) {
+      await enqueue({ type: "addEnvelope", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addEnvelope(userId, { name });
-      setEnvelopes((prev) => [...prev, created]);
+      const created = await addEnvelope(userId, payload, id);
+      setEnvelopes((prev) => prev.map((e) => (e.id === id ? created : e)));
       setSelectedEnvId(created.id);
-    } catch { /* silent */ }
+    } catch {
+      setEnvelopes((prev) => prev.filter((e) => e.id !== id));
+      setSelectedEnvId(envelopes[0]?.id ?? null);
+    }
   }
 
   // ── Envelope 순서 변경 ───────────────────────────────────────────────────────
@@ -298,10 +318,17 @@ export default function PapersScreen() {
     const draft = draftPaperForEnv(envId);
     if (draft) {
       const pid = draft.id;
-      const opt = makeOptimistic(userId, content, pid, scheduledDate);
+      const id = generateId();
+      const opt = makeOptimistic(userId, content, pid, scheduledDate, id);
       setItemsByPaperId((p) => ({ ...p, [pid]: [opt, ...(p[pid] ?? [])] }));
+      const payload = { content, paper_id: pid, scheduled_date: scheduledDate };
+      if (!isOnline) {
+        await enqueue({ type: "addItem", id, userId, payload });
+        enqueueRefresh();
+        return;
+      }
       try {
-        const created = await addItem(userId, { content, paper_id: pid, scheduled_date: scheduledDate });
+        const created = await addItem(userId, payload, id);
         setItemsByPaperId((p) => ({
           ...p, [pid]: (p[pid] ?? []).map((i) => (i.id === opt.id ? created : i)),
         }));
@@ -309,6 +336,8 @@ export default function PapersScreen() {
         setItemsByPaperId((p) => ({ ...p, [pid]: (p[pid] ?? []).filter((i) => i.id !== opt.id) }));
       }
     } else {
+      // draft paper 없음 → paper 먼저 생성 (온라인 전용: 두 단계 atomic 필요)
+      if (!isOnline) return;
       try {
         const np = await addPaper(userId, { name: null, envelope_id: envId, status: "active" });
         const created = await addItem(userId, { content, paper_id: np.id, scheduled_date: scheduledDate });
@@ -322,10 +351,17 @@ export default function PapersScreen() {
   async function handleAddToPaper(paper: Paper, content: string, scheduledDate: string | null = null) {
     if (!userId) return;
     const pid = paper.id;
-    const opt = makeOptimistic(userId, content, pid, scheduledDate);
+    const id = generateId();
+    const opt = makeOptimistic(userId, content, pid, scheduledDate, id);
     setItemsByPaperId((p) => ({ ...p, [pid]: [...(p[pid] ?? []), opt] }));
+    const payload = { content, paper_id: pid, scheduled_date: scheduledDate };
+    if (!isOnline) {
+      await enqueue({ type: "addItem", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addItem(userId, { content, paper_id: pid, scheduled_date: scheduledDate });
+      const created = await addItem(userId, payload, id);
       setItemsByPaperId((p) => ({
         ...p, [pid]: (p[pid] ?? []).map((i) => (i.id === opt.id ? created : i)),
       }));
@@ -355,6 +391,11 @@ export default function PapersScreen() {
         p.id === draft.id ? { ...p, status: "completed", name: today, completed_at: now } : p,
       ),
     );
+    if (!isOnline) {
+      await enqueue({ type: "completePaper", id: draft.id, isDraft: true });
+      enqueueRefresh();
+      return;
+    }
     try {
       await completePaper(draft.id, true);
       await addWave(userId, draft.id);
@@ -378,12 +419,30 @@ export default function PapersScreen() {
     setIsAddingPaper(false);
     setNewPaperName("");
     if (!name || !userId) return;
+    const id = generateId();
+    const payload = { name, envelope_id: selectedEnvId, status: "active" as const };
+    const optimisticPaper: Paper = {
+      id, user_id: userId, name, envelope_id: selectedEnvId, status: "active",
+      is_favorite: false, parent_paper_id: null, order: null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      completed_at: null, deleted_at: null,
+    };
+    setAllPapers((prev) => [...prev, optimisticPaper]);
+    setItemsByPaperId((prev) => ({ ...prev, [id]: [] }));
+    setExpandedPaperId(id);
+    if (!isOnline) {
+      await enqueue({ type: "addPaper", id, userId, payload });
+      enqueueRefresh();
+      return;
+    }
     try {
-      const created = await addPaper(userId, { name, envelope_id: selectedEnvId, status: "active" });
-      setAllPapers((prev) => [...prev, created]);
-      setItemsByPaperId((prev) => ({ ...prev, [created.id]: [] }));
-      setExpandedPaperId(created.id);
-    } catch { /* silent */ }
+      const created = await addPaper(userId, payload, id);
+      setAllPapers((prev) => prev.map((p) => (p.id === id ? created : p)));
+    } catch {
+      setAllPapers((prev) => prev.filter((p) => p.id !== id));
+      setItemsByPaperId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setExpandedPaperId(null);
+    }
   }
 
   // ── 아이템 체크 토글 ─────────────────────────────────────────────────────────
@@ -395,6 +454,11 @@ export default function PapersScreen() {
         i.id === itemId ? { ...i, is_checked: checked, checked_at: checkedAt } : i,
       ),
     }));
+    if (!isOnline) {
+      await enqueue({ type: "toggleItem", id: itemId, checked, checkedAt });
+      enqueueRefresh();
+      return;
+    }
     try {
       await toggleItem(itemId, checked);
     } catch {
@@ -421,6 +485,12 @@ export default function PapersScreen() {
       ...prev,
       ...(item.paper_id ? { [item.paper_id]: (prev[item.paper_id] ?? []).filter((i) => i.id !== item.id) } : {}),
     }));
+    if (!isOnline) {
+      await enqueue({ type: "deleteItem", id: item.id });
+      enqueueRefresh();
+      Toast.show({ type: "success", text1: "삭제되었습니다." });
+      return;
+    }
     try {
       await deleteItem(item.id);
       Toast.show({ type: "success", text1: "삭제되었습니다." });
@@ -436,6 +506,12 @@ export default function PapersScreen() {
       setAllPapers((prev) => prev.filter((p) => p.id !== paper.id));
       if (expandedPaperId === paper.id) setExpandedPaperId(null);
       if (paperEditModeId === paper.id) setPaperEditModeId(null);
+      if (!isOnline) {
+        await enqueue({ type: "deletePaper", id: paper.id });
+        enqueueRefresh();
+        Toast.show({ type: "success", text1: "삭제되었습니다.", text2: "연결 복구 시 서버에 반영돼요." });
+        return;
+      }
       try {
         await deletePaper(paper.id);
         Toast.show({ type: "success", text1: "삭제되었습니다.", text2: "설정 > 최근 삭제됨에서 30일 내 복구할 수 있어요." });
@@ -446,6 +522,11 @@ export default function PapersScreen() {
       return;
     }
 
+    // envelope 삭제 — cascade가 복잡해 온라인 전용 유지
+    if (!isOnline) {
+      Toast.show({ type: "error", text1: "오프라인 중에는 Envelope를 삭제할 수 없어요." });
+      return;
+    }
     const envelope = target.envelope;
     setEnvelopes((prev) => prev.filter((env) => env.id !== envelope.id));
     setAllPapers((prev) => prev.filter((paper) => paper.envelope_id !== envelope.id));
@@ -541,6 +622,7 @@ export default function PapersScreen() {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date().toISOString();
+    const isDraft = paper.name === null;
     setAllPapers((prev) =>
       prev.map((p) =>
         p.id === paper.id
@@ -549,8 +631,13 @@ export default function PapersScreen() {
       ),
     );
     if (expandedPaperId === paper.id) setExpandedPaperId(null);
+    if (!isOnline) {
+      await enqueue({ type: "completePaper", id: paper.id, isDraft });
+      enqueueRefresh();
+      return;
+    }
     try {
-      await completePaper(paper.id, paper.name === null);
+      await completePaper(paper.id, isDraft);
       await addWave(userId, paper.id);
       setWaveCounts((prev) => {
         const next = { ...prev, [paper.id]: (prev[paper.id] ?? 0) + 1 };
