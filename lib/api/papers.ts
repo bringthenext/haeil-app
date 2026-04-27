@@ -21,10 +21,11 @@ export async function getPapers(): Promise<Paper[]> {
 export async function addPaper(
   userId: string,
   payload: AddPaperPayload,
+  id?: string,
 ): Promise<Paper> {
   const { data, error } = await supabase
     .from("papers")
-    .insert({ ...payload, user_id: userId, status: payload.status ?? "active" })
+    .insert({ ...payload, user_id: userId, status: payload.status ?? "active", ...(id ? { id } : {}) })
     .select("*")
     .single();
   if (error) throw error;

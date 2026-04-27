@@ -34,10 +34,11 @@ export async function getItemsByPaperIds(paperIds: string[]): Promise<Item[]> {
 export async function addItem(
   userId: string,
   payload: AddItemPayload,
+  id?: string,
 ): Promise<Item> {
   const { data, error } = await supabase
     .from("items")
-    .insert({ ...payload, user_id: userId })
+    .insert({ ...payload, user_id: userId, ...(id ? { id } : {}) })
     .select("*")
     .single();
   if (error) throw error;

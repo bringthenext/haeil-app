@@ -5,9 +5,11 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Text } from "@/components/ui/Text";
+import { OfflineProvider, useOffline } from "@/contexts/OfflineContext";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useSession } from "@/hooks/useSession";
-import { colors, fontFamily, fontSize } from "@/lib/tokens";
+import { colors, fontFamily, fontSize, spacing } from "@/lib/tokens";
 
 const TAB_PATHS = ["/inbox", "/papers", "/schedule", "/me"];
 
@@ -20,11 +22,21 @@ export const TABS = [
 
 export default function AppLayout() {
   const { session, loading } = useSession();
+  if (!loading && !session) return <Redirect href="/" />;
+  return (
+    <OfflineProvider>
+      <AppLayoutInner />
+    </OfflineProvider>
+  );
+}
+
+function AppLayoutInner() {
   const { isMobile } = useBreakpoint();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const prevIsMobile = useRef(isMobile);
+  const { isOnline, pendingCount } = useOffline();
 
   // 와이드→모바일 전환 시 탭 경로가 아니면 inbox로 이동
   useEffect(() => {
@@ -35,18 +47,29 @@ export default function AppLayout() {
     prevIsMobile.current = isMobile;
   }, [isMobile]);
 
-  if (!loading && !session) return <Redirect href="/" />;
+  const offlineBanner = !isOnline && (
+    <View style={{ backgroundColor: colors.muted, paddingVertical: spacing.sm, paddingHorizontal: spacing["2xl"], alignItems: "center" }}>
+      <Text variant="meta" color="subtle">
+        오프라인 {pendingCount > 0 ? `· ${pendingCount}개 대기 중` : ""}
+      </Text>
+    </View>
+  );
 
   if (!isMobile) {
     return (
-      <View className="flex-1 flex-row bg-background">
-        <Sidebar />
+      <View style={{ flex: 1 }}>
+        {offlineBanner}
+        <View className="flex-1 flex-row bg-background">
+          <Sidebar />
+        </View>
       </View>
     );
   }
 
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      {offlineBanner}
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -94,5 +117,6 @@ export default function AppLayout() {
       <Tabs.Screen name="settings/licenses" options={{ href: null }} />
       <Tabs.Screen name="settings/trash" options={{ href: null }} />
     </Tabs>
+    </View>
   );
 }

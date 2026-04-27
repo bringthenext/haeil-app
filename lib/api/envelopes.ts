@@ -21,10 +21,11 @@ export async function getEnvelopes(): Promise<Envelope[]> {
 export async function addEnvelope(
   userId: string,
   payload: AddEnvelopePayload,
+  id?: string,
 ): Promise<Envelope> {
   const { data, error } = await supabase
     .from("envelopes")
-    .insert({ ...payload, user_id: userId })
+    .insert({ ...payload, user_id: userId, ...(id ? { id } : {}) })
     .select("*")
     .single();
   if (error) throw error;
