@@ -110,9 +110,8 @@ export default function ScheduleScreen() {
   const [activePapers, setActivePapers]     = useState<{ id: string; name: string }[]>([]);
   const [inputText, setInputText]           = useState("");
   const [refreshing, setRefreshing]         = useState(false);
-  const [selectedDate, setSelectedDate]     = useState<string | null>(null);
-
   const todayStr = toDateStr(new Date());
+  const [selectedDate, setSelectedDate]     = useState<string>(todayStr);
 
   // ── 날짜 범위: 기본 3일 전 ~ 6일 후, 주간 스와이프 시 동적 확장 ───────────
   const [dateRange, setDateRange] = useState<string[]>(() => {
@@ -281,8 +280,8 @@ export default function ScheduleScreen() {
 
   // ── 날짜 탭 → 해당 섹션으로 스크롤 ─────────────────────────────────────────
   function handleSelectDate(date: string | null) {
-    setSelectedDate(date);
     if (!date) return;
+    setSelectedDate(date);
     // 해당 헤더의 content Y 계산
     let y = 0;
     for (const entry of flatData) {

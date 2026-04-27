@@ -30,7 +30,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -45,9 +45,9 @@ export default function LoginScreen() {
     anonAccessToken: string;
   } | null>(null);
 
-  // 실제 계정 세션이 있으면 inbox로 이동. anonymous 세션은 계정 로그인 UI를 보여준다.
+  // 세션이 있으면 inbox로 이동. settings 등에서 명시적으로 push해 온 경우엔 리다이렉트하지 않음.
   useEffect(() => {
-    if (!sessionLoading && session && !session.user.is_anonymous) {
+    if (!sessionLoading && session && !router.canGoBack()) {
       router.replace("/(app)/inbox");
     }
   }, [session, sessionLoading]);
@@ -362,31 +362,31 @@ export default function LoginScreen() {
           </TouchableOpacity>
         )}
 
+        {/* 비회원으로 시작 — 다른 버튼과 동일 레벨 */}
+        <TouchableOpacity
+          onPress={() => void handleGuestLogin()}
+          disabled={guestLoading}
+          className="mb-6 h-12 w-full max-w-sm flex-row items-center justify-center gap-2 rounded-xl border border-border bg-background disabled:opacity-50"
+          activeOpacity={0.8}
+        >
+          {guestLoading ? (
+            <ActivityIndicator color="#94a3b8" size="small" />
+          ) : (
+            <Text className="text-sm font-medium text-muted-foreground">
+              비회원으로 시작하기
+            </Text>
+          )}
+        </TouchableOpacity>
+
         {/* 모드 전환 */}
         <TouchableOpacity
           onPress={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mb-6"
         >
           <Text className="text-xs text-muted-foreground">
             {mode === "signin"
               ? "계정이 없으신가요? 회원가입"
               : "이미 계정이 있으신가요? 로그인"}
           </Text>
-        </TouchableOpacity>
-
-        {/* 비회원으로 시작 */}
-        <TouchableOpacity
-          onPress={() => void handleGuestLogin()}
-          disabled={guestLoading}
-          className="disabled:opacity-50"
-        >
-          {guestLoading ? (
-            <ActivityIndicator color="#94a3b8" size="small" />
-          ) : (
-            <Text className="text-xs text-muted-foreground underline">
-              비회원으로 시작하기
-            </Text>
-          )}
         </TouchableOpacity>
       </View>
 
