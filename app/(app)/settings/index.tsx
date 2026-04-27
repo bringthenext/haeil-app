@@ -14,7 +14,7 @@ const APP_VERSION = "1.0.0";
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Text style={{ fontSize: 11, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 28, marginBottom: 6, marginHorizontal: 20 }}>
+    <Text style={{ fontSize: 13, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 28, marginBottom: 6, marginHorizontal: 20 }}>
       {children}
     </Text>
   );

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { BarChart2 } from "lucide-react-native";
 
+import { Text } from "@/components/ui/Text";
 import { getEnvelopeWaveCounts, type EnvelopeWaveCount } from "@/lib/api/stats";
+import { colors } from "@/lib/tokens";
 
 const PALETTE = [
   "#1D9E75", "#0F6E56", "#9FE1CB", "#EF9F27",
@@ -21,12 +23,12 @@ export function RoutineWaveChart() {
   return (
     <View className="mb-3 rounded-2xl bg-white p-4">
       <View className="mb-3 flex-row items-center gap-1.5">
-        <BarChart2 size={16} color="#1D9E75" />
-        <Text className="text-sm font-semibold text-[#1a1a1a]">루틴별 누적 wave</Text>
+        <BarChart2 size={16} color={colors.primary} />
+        <Text size="sm" weight="semibold">루틴별 누적 wave</Text>
       </View>
 
       {data.length === 0 ? (
-        <Text className="py-4 text-center text-xs text-[#999999]">
+        <Text size="xs" color="subtle" align="center" style={{ paddingVertical: 16 }}>
           envelope가 없어요
         </Text>
       ) : (
@@ -47,14 +49,15 @@ export function RoutineWaveChart() {
                       }}
                     />
                     <Text
-                      className="text-xs text-[#555555]"
+                      size="xs"
+                      color="body"
                       numberOfLines={1}
                       style={{ maxWidth: 160 }}
                     >
                       {item.name}
                     </Text>
                   </View>
-                  <Text className="text-xs font-medium text-[#1a1a1a]">
+                  <Text size="xs" weight="medium">
                     {item.count}
                   </Text>
                 </View>

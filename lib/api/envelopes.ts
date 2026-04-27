@@ -61,6 +61,15 @@ export async function updateEnvelopeOrders(
   if (failed?.error) throw failed.error;
 }
 
+/** 봉투 이름 변경 */
+export async function updateEnvelopeName(id: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from("envelopes")
+    .update({ name })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /**
  * 봉투 소프트 삭제 — 하위 papers도 cascade soft delete.
  * 복원 시 envelope + 그 envelope_id를 가진 soft-deleted papers를 함께 살린다.

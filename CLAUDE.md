@@ -130,7 +130,7 @@ lib/
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
 | T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | ✅ 완료 |
 | T13 | 설정 화면 (계정·로그아웃·탈퇴·한 주 시작·약관) | ✅ 완료 |
-| T14 | 디자인 시스템화 (타이포그래피 스케일 · 공통 컴포넌트 · 폰트 크기 상향) | 🔜 다음 |
+| T14 | 디자인 시스템화 (타이포그래피 스케일 · 공통 컴포넌트 · 폰트 크기 상향) | 🚧 진행 중 |
 | T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🔜 다음 |
 
 ### 작업 순서
@@ -182,20 +182,14 @@ lib/
 - inbox 스케줄: inbox item 한정, papers 스케줄: 해당 envelope 내 item 한정
 - 구조는 schedule 탭과 동일하되 범위만 다름
 
-## 디자인 토큰 & 컬러
-| 토큰 | 값 | 용도 |
-|------|-----|------|
-| primary | `#1D9E75` | 메인 액션, 오늘 강조, 체크 |
-| primary-dark | `#0F6E56` | wave 수 텍스트, hover |
-| primary-light | `#9FE1CB` | 히트맵 l1, 선택 테두리 |
-| primary-bg | `#E1F5EE` | 오늘 item 배경, 선택 카드 배경 |
-| bg-primary | `#ffffff` | 카드, 바텀시트 |
-| bg-secondary | `#f5f5f0` | 화면 배경, input 배경, 비활성 카드 |
-| text-primary | `#1a1a1a` | 본문 |
-| text-secondary | `#555555` | 서브텍스트 |
-| text-tertiary | `#999999` | 플레이스홀더, 라벨 |
-| danger | `#E24B4A` | "지남" 표시 |
-| star | `#EF9F27` | 즐겨찾기 ★ |
+## 디자인 시스템 규칙
+- 색상, 폰트, spacing, radius, border는 `lib/tokens.ts`를 기준으로 사용한다.
+- 화면 컴포넌트에서는 hex 색상과 반복되는 magic number를 직접 쓰지 않는다. 새 값이 필요하면 먼저 token으로 정의할지 검토한다.
+- 색상은 `palette`보다 `semanticColors`/`colors` alias를 우선 사용한다. 다크모드나 테마컬러 변경은 semantic layer를 확장해서 처리한다.
+- 공통 텍스트는 `components/ui/Text.tsx`, 공통 버튼은 `components/ui/Button.tsx`를 우선 사용한다.
+- 정렬 트리거, composer chips, badge label처럼 서로 영향을 받으면 안 되는 UI는 별도 variant/style로 분리한다.
+- 토/일 색상처럼 지역권 관습이 강한 표현은 기본 UI에 강제하지 않는다. 필요하면 설정 가능한 옵션으로 분리한다.
+- 디자인 토큰 변경 시 `docs/colors.md`도 함께 갱신한다.
 
 > 참고 문서: `docs/haeil_screens.html` (UI 목업), `docs/haeil_uxui.md` (UX/UI 설계), `docs/haeil_structure_v2.md` (데이터 구조), `docs/TASKS.md` (태스크 상세 시나리오)
 

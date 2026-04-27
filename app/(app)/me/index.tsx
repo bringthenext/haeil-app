@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
 
+import { Button } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
 import { useSession } from "@/hooks/useSession";
 import { getProfile } from "@/lib/api/profile";
 import { getStreakStats, getWeekWaveStats, getEnvelopeWaveCounts } from "@/lib/api/stats";
@@ -15,6 +17,11 @@ import { RoutineWaveChart } from "@/components/me/RoutineWaveChart";
 import { ChallengesTab } from "@/components/me/ChallengesTab";
 
 type Tab = "dashboard" | "challenges";
+
+const TAB_LABEL: Record<Tab, string> = {
+  dashboard: "Dashboard",
+  challenges: "Challenges",
+};
 
 export default function MeScreen() {
   const router = useRouter();
@@ -60,11 +67,11 @@ export default function MeScreen() {
       <View className="bg-[#f5f5f0] px-5 pb-4 pt-5">
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1, flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginRight: 12 }}>
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#1a1a1a" }}>
+            <Text variant="title" weight="bold">
               {displayName ? `${displayName}님,` : "안녕하세요,"}
             </Text>
             {subGreeting ? (
-              <Text style={{ fontSize: 13, color: "#1a1a1a" }}>
+              <Text variant="body" color="foreground" style={{ flexShrink: 1 }}>
                 {subGreeting}
               </Text>
             ) : null}
@@ -77,18 +84,15 @@ export default function MeScreen() {
 
       {isAnonymous ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40, gap: 16 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: "#1a1a1a", textAlign: "center" }}>
+          <Text variant="section" weight="bold" align="center">
             로그인하면 사용할 수 있어요
           </Text>
-          <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", lineHeight: 20 }}>
+          <Text variant="meta" align="center">
             streak, wave 통계, 챌린지 기록은{"\n"}로그인 후 확인할 수 있습니다.
           </Text>
-          <Pressable
-            onPress={() => router.push("/(auth)/login")}
-            style={{ marginTop: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, backgroundColor: "#1a1a1a" }}
-          >
-            <Text style={{ fontSize: 15, fontWeight: "600", color: "#ffffff" }}>로그인 / 회원가입</Text>
-          </Pressable>
+          <Button onPress={() => router.push("/(auth)/login")} size="lg" style={{ marginTop: 8, paddingHorizontal: 28 }}>
+            로그인 / 회원가입
+          </Button>
         </View>
       ) : (
         <>
@@ -101,11 +105,11 @@ export default function MeScreen() {
                 className="mr-5 pb-2.5"
               >
                 <Text
-                  className={`text-sm font-medium ${
-                    activeTab === tab ? "text-[#1a1a1a]" : "text-[#999999]"
-                  }`}
+                  variant="section"
+                  weight="semibold"
+                  color={activeTab === tab ? "foreground" : "subtle"}
                 >
-                  {tab}
+                  {TAB_LABEL[tab]}
                 </Text>
                 {activeTab === tab && (
                   <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D9E75]" />

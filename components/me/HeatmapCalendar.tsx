@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text as RNText, View } from "react-native";
 import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 
+import { Text } from "@/components/ui/Text";
+import { colors, radius } from "@/lib/tokens";
 import {
   getWaveDetailsByDate,
   getYearlyWaveMap,
@@ -97,12 +99,12 @@ export function HeatmapCalendar() {
     <View className="mb-3 rounded-2xl bg-white p-4">
       {/* 연도 네비게이터 */}
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-sm font-semibold text-[#1a1a1a]">연간 히트맵</Text>
+        <Text variant="label" color="foreground">연간 히트맵</Text>
         <View className="flex-row items-center gap-2">
           <Pressable onPress={() => setYear((y) => y - 1)} hitSlop={8}>
             <ChevronLeft size={16} color="#555555" />
           </Pressable>
-          <Text className="w-12 text-center text-sm font-medium text-[#555555]">{year}</Text>
+          <Text variant="label" align="center" style={{ width: 48 }}>{year}</Text>
           <Pressable
             onPress={() => setYear((y) => y + 1)}
             disabled={year >= currentYear}
@@ -122,7 +124,7 @@ export function HeatmapCalendar() {
               return (
                 <View key={colIdx} style={{ width: CELL + GAP, alignItems: "flex-start" }}>
                   {label !== undefined ? (
-                    <Text style={{ fontSize: 9, color: "#999999" }}>{MONTH_LABELS[label[0]]}</Text>
+                    <Text variant="caption">{MONTH_LABELS[label[0]]}</Text>
                   ) : null}
                 </View>
               );
@@ -152,14 +154,14 @@ export function HeatmapCalendar() {
 
           {/* 범례 */}
           <View className="mt-1 flex-row items-center gap-1 self-end">
-            <Text style={{ fontSize: 9, color: "#999999", marginRight: 3 }}>적음</Text>
+            <Text variant="caption" style={{ marginRight: 3 }}>적음</Text>
             {[0, 1, 3, 6].map((v) => (
               <View
                 key={v}
                 style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: heatColor(v) }}
               />
             ))}
-            <Text style={{ fontSize: 9, color: "#999999", marginLeft: 3 }}>많음</Text>
+            <Text variant="caption" style={{ marginLeft: 3 }}>많음</Text>
           </View>
         </View>
       </ScrollView>
@@ -179,8 +181,8 @@ export function HeatmapCalendar() {
             <View
               style={{
                 backgroundColor: "#ffffff",
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
+                borderTopLeftRadius: radius.lg,
+                borderTopRightRadius: radius.lg,
                 padding: 20,
                 paddingBottom: 36,
                 minHeight: 160,
@@ -189,10 +191,10 @@ export function HeatmapCalendar() {
               {/* 헤더 */}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <View>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: "#1a1a1a" }}>
+                  <Text variant="section" weight="bold">
                     {popover?.date}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#999999", marginTop: 2 }}>
+                  <Text variant="meta" style={{ marginTop: 2 }}>
                     wave {popover?.count ?? 0}개
                   </Text>
                 </View>
@@ -203,11 +205,11 @@ export function HeatmapCalendar() {
 
               {/* wave 목록 */}
               {popover?.waves === null ? (
-                <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", paddingVertical: 12 }}>
+                <Text variant="meta" align="center" style={{ paddingVertical: 12 }}>
                   불러오는 중...
                 </Text>
               ) : popover?.count === 0 ? (
-                <Text style={{ fontSize: 13, color: "#999999", textAlign: "center", paddingVertical: 12 }}>
+                <Text variant="meta" align="center" style={{ paddingVertical: 12 }}>
                   이 날은 wave가 없어요
                 </Text>
               ) : (
@@ -223,10 +225,10 @@ export function HeatmapCalendar() {
                       borderBottomColor: "#f5f5f0",
                     }}
                   >
-                    <Text style={{ fontSize: 14, color: "#1a1a1a", flex: 1 }} numberOfLines={1}>
+                    <Text variant="body" style={{ flex: 1 }} numberOfLines={1}>
                       {w.paperName}
                     </Text>
-                    <Text style={{ fontSize: 12, color: "#999999", marginLeft: 8 }}>
+                    <Text variant="meta" style={{ marginLeft: 8 }}>
                       {w.completedAt}
                     </Text>
                   </View>

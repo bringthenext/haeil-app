@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
+import { Text } from "@/components/ui/Text";
 import { getStreakStats, type StreakStats } from "@/lib/api/stats";
+import { colors, radius } from "@/lib/tokens";
 
 export function StreakCard() {
   const [stats, setStats] = useState<StreakStats | null>(null);
@@ -13,18 +15,18 @@ export function StreakCard() {
   const activeDaysCount = stats?.activeDays.size ?? 0;
 
   return (
-    <View style={{ flex: 1, borderRadius: 16, backgroundColor: "#ffffff", padding: 16 }}>
-      <Text style={{ fontSize: 10, fontWeight: "700", color: "#999999", letterSpacing: 0.8, marginBottom: 6 }}>
+    <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.surface, padding: 16 }}>
+      <Text variant="caption" weight="bold" style={{ letterSpacing: 0.8, marginBottom: 6 }}>
         STREAK
       </Text>
-      <Text style={{ fontSize: 36, fontWeight: "800", color: "#1D9E75", lineHeight: 40 }}>
+      <Text variant="display">
         {stats?.currentStreak ?? 0}
       </Text>
-      <Text style={{ fontSize: 13, color: "#555555", marginBottom: 10 }}>일 연속</Text>
-      <Text style={{ fontSize: 12, color: "#999999", marginBottom: 2 }}>
+      <Text variant="meta" color="body" style={{ marginBottom: 10 }}>일 연속</Text>
+      <Text variant="meta" style={{ marginBottom: 2 }}>
         최장 {stats?.bestStreak ?? 0}일
       </Text>
-      <Text style={{ fontSize: 12, color: "#999999" }}>
+      <Text variant="meta">
         30일 중 {activeDaysCount}일
       </Text>
     </View>

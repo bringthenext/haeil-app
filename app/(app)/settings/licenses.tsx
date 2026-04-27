@@ -32,7 +32,7 @@ export default function LicensesScreen() {
             style={{ paddingVertical: 12, borderBottomWidth: i < LICENSES.length - 1 ? 1 : 0, borderBottomColor: "#e5e5e0" }}
           >
             <Text style={{ fontSize: 14, fontWeight: "600", color: "#1a1a1a" }}>{lib.name}</Text>
-            <Text style={{ fontSize: 12, color: "#999999", marginTop: 2 }}>{lib.license}</Text>
+            <Text style={{ fontSize: 13, color: "#999999", marginTop: 2 }}>{lib.license}</Text>
           </View>
         ))}
       </ScrollView>

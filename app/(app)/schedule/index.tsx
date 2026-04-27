@@ -23,6 +23,7 @@ import {
   updateItemDateAndOrder,
 } from "@/lib/api/items";
 import { getPapers } from "@/lib/api/papers";
+import { borderWidth, colors, fontSize, radius, spacing } from "@/lib/tokens";
 import type { ScheduledItemRow } from "@/lib/api/items";
 
 // ─── Flat list 엔트리 ─────────────────────────────────────────────────────────
@@ -75,27 +76,22 @@ function SectionHeader({ date, todayStr }: { date: string; todayStr: string }) {
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingTop: 16,
-        paddingBottom: 5,
-        backgroundColor: "#fff",
+        gap: spacing.md,
+        paddingHorizontal: spacing["2xl"],
+        paddingTop: spacing["4xl"],
+        paddingBottom: spacing.md,
+        backgroundColor: colors.surface,
       }}
     >
       <Text
         style={{
-          fontSize: 12,
+          fontSize: fontSize.sm,
           fontWeight: isToday ? "700" : "500",
-          color: isToday ? "#1D9E75" : isPast ? "#aaa" : "#555",
+          color: isToday ? colors.primary : isPast ? colors.subtle : colors.body,
         }}
       >
         {formatDateLabel(date, todayStr)}
       </Text>
-      {isPast && !isToday && (
-        <View style={{ backgroundColor: "#FFE8E8", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6 }}>
-          <Text style={{ fontSize: 10, color: "#E24B4A" }}>지남</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -381,29 +377,29 @@ export default function ScheduleScreen() {
         onLongPress={dragHandlers.onLongPress}
         onPressOut={dragHandlers.onPressOut}
         delayLongPress={dragHandlers.delayLongPress}
-        style={{ paddingHorizontal: 12, paddingBottom: 3 }}
+        style={{ paddingHorizontal: spacing["2xl"], paddingBottom: spacing.xs }}
       >
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 8,
-            backgroundColor: isActive ? "#fff" : isToday ? "#E1F5EE" : "#f5f5f0",
-            borderRadius: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 8,
+            gap: spacing.lg,
+            backgroundColor: isActive ? colors.surface : isToday ? colors.primarySoft : colors.backgroundMuted,
+            borderRadius: radius.sm,
+            paddingHorizontal: spacing.xl,
+            paddingVertical: spacing.lg,
           }}
         >
           {/* 체크 버튼 */}
-          <Pressable onPress={() => handleToggle(item.id, !item.is_checked)} hitSlop={8}>
+          <Pressable onPress={() => handleToggle(item.id, !item.is_checked)} hitSlop={spacing.lg}>
             <View
               style={{
                 width: 18,
                 height: 18,
-                borderRadius: 9,
-                borderWidth: 1.5,
-                borderColor: item.is_checked ? "#1D9E75" : isToday ? "#1D9E75" : "#ccc",
-                backgroundColor: item.is_checked ? "#1D9E75" : "transparent",
+                borderRadius: radius.full,
+                borderWidth: borderWidth.medium,
+                borderColor: item.is_checked ? colors.primary : isToday ? colors.primary : colors.iconMuted,
+                backgroundColor: item.is_checked ? colors.primary : "transparent",
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -413,9 +409,9 @@ export default function ScheduleScreen() {
                   style={{
                     width: 5,
                     height: 3,
-                    borderLeftWidth: 1.5,
-                    borderBottomWidth: 1.5,
-                    borderColor: "white",
+                    borderLeftWidth: borderWidth.medium,
+                    borderBottomWidth: borderWidth.medium,
+                    borderColor: colors.white,
                     transform: [{ rotate: "-45deg" }, { translateY: -0.5 }],
                   }}
                 />
@@ -427,8 +423,8 @@ export default function ScheduleScreen() {
           <Text
             style={{
               flex: 1,
-              fontSize: 13,
-              color: item.is_checked ? "#999" : "#1a1a1a",
+              fontSize: fontSize.sm,
+              color: item.is_checked ? colors.subtle : colors.foreground,
               textDecorationLine: item.is_checked ? "line-through" : "none",
             }}
             numberOfLines={2}
@@ -439,15 +435,15 @@ export default function ScheduleScreen() {
           {/* 출처 뱃지 */}
           <View
             style={{
-              backgroundColor: isInbox ? "#eee" : "#E1F5EE",
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 8,
-              borderWidth: isInbox ? 0 : 0.5,
-              borderColor: isInbox ? "transparent" : "#9FE1CB",
+              backgroundColor: isInbox ? colors.chip : colors.primarySoft,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xxs,
+              borderRadius: radius.sm,
+              borderWidth: isInbox ? 0 : borderWidth.hairline,
+              borderColor: isInbox ? "transparent" : colors.primaryBorder,
             }}
           >
-            <Text style={{ fontSize: 10, color: isInbox ? "#aaa" : "#0F6E56" }}>
+            <Text style={{ fontSize: fontSize.sm, color: isInbox ? colors.disabled : colors.primaryDark }}>
               {item.source}
             </Text>
           </View>
@@ -471,15 +467,15 @@ export default function ScheduleScreen() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={56}
       >
         {/* 헤더 */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
-          <Text style={{ fontSize: 22, fontWeight: "600", color: "#1a1a1a" }}>schedule</Text>
+        <View style={{ paddingHorizontal: spacing["4xl"], paddingTop: spacing.lg, paddingBottom: spacing["2xl"] }}>
+          <Text style={{ fontSize: fontSize.xl, fontWeight: "600", color: colors.foreground }}>schedule</Text>
         </View>
 
         {/* 주간 캘린더 바 */}
@@ -491,7 +487,7 @@ export default function ScheduleScreen() {
           weekStart={weekStart}
         />
 
-        <View style={{ height: 0.5, backgroundColor: "#eee", marginHorizontal: 12, marginBottom: 4 }} />
+        <View style={{ height: borderWidth.hairline, backgroundColor: colors.borderSubtle, marginHorizontal: spacing["2xl"], marginBottom: spacing.sm }} />
 
         {/* 드래그 가능한 날짜별 아이템 리스트 */}
         <GlobalSortableList<FlatEntry>

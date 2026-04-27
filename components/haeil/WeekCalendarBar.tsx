@@ -3,11 +3,13 @@ import {
   FlatList,
   Modal,
   Pressable,
-  Text,
+  Text as RNText,
   useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text } from "@/components/ui/Text";
+import { borderWidth, colors, radius, spacing } from "@/lib/tokens";
 import type { Item } from "@/lib/types";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getDay() 기준
@@ -141,30 +143,30 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: 14,
-          paddingBottom: 4,
+          paddingHorizontal: spacing["3xl"],
+          paddingBottom: spacing.sm,
         }}
       >
         <Pressable
           onPress={() => setShowMonthPicker(true)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
+          style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}
         >
-          <Text style={{ fontSize: 11, color: "#888" }}>
+          <Text variant="sortTrigger" color="muted">
             {getWeekLabel(currentOffset, weekStart)}
           </Text>
-          <Text style={{ fontSize: 9, color: "#bbb" }}>∨</Text>
+          <RNText style={{ fontSize: 13, color: colors.disabled }}>∨</RNText>
         </Pressable>
 
         <Pressable
           onPress={scrollToToday}
           style={{
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderRadius: 10,
-            backgroundColor: "#E1F5EE",
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.xs,
+            borderRadius: radius.chip,
+            backgroundColor: colors.primarySoft,
           }}
         >
-          <Text style={{ fontSize: 11, color: "#1D9E75", fontWeight: "500" }}>오늘</Text>
+          <Text variant="control" color="primary">오늘</Text>
         </Pressable>
       </View>
 
@@ -186,16 +188,16 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
         renderItem={({ item: offset }) => {
           const weekDates = getWeekDates(offset, weekStart);
           return (
-            <View style={{ width, flexDirection: "row", paddingHorizontal: 12, paddingBottom: 4 }}>
+            <View style={{ width, flexDirection: "row", paddingHorizontal: spacing["2xl"], paddingBottom: spacing.sm }}>
               {weekDates.map((d) => {
                 const dateStr = toDateStr(d);
                 const isToday = dateStr === todayStr;
                 const isSelected = dateStr === selectedDate;
                 const hasDot = dotDates.has(dateStr);
-                const bgColor = isSelected ? "#1D9E75" : isToday ? "#E1F5EE" : undefined;
-                const labelColor = isSelected ? "rgba(255,255,255,0.8)" : isToday ? "#1D9E75" : "#aaa";
-                const numColor = isSelected ? "#fff" : isToday ? "#1D9E75" : "#1a1a1a";
-                const dotColor = isSelected ? "#fff" : "#1D9E75";
+                const bgColor = isSelected ? colors.primary : isToday ? colors.primarySoft : undefined;
+                const labelColor = isSelected ? colors.onPrimaryMuted : isToday ? colors.primary : colors.subtle;
+                const numColor = isSelected ? colors.white : isToday ? colors.primary : colors.foreground;
+                const dotColor = isSelected ? colors.white : colors.primary;
 
                 return (
                   <Pressable
@@ -204,18 +206,18 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
                     style={{
                       flex: 1,
                       alignItems: "center",
-                      paddingVertical: 6,
-                      borderRadius: 12,
+                      paddingVertical: spacing.md,
+                      borderRadius: radius.md,
                       backgroundColor: bgColor,
                     }}
                   >
-                    <Text style={{ fontSize: 10, color: labelColor }}>{dayLabel(d)}</Text>
-                    <Text style={{ fontSize: 13, fontWeight: "500", marginTop: 2, color: numColor }}>
+                    <Text variant="meta" weight="medium" style={{ color: labelColor }}>{dayLabel(d)}</Text>
+                    <Text variant="section" weight="semibold" style={{ marginTop: spacing.xxs, color: numColor }}>
                       {d.getDate()}
                     </Text>
-                    <View style={{ height: 6, alignItems: "center", justifyContent: "center", marginTop: 2 }}>
+                    <View style={{ height: spacing.md, alignItems: "center", justifyContent: "center", marginTop: spacing.xxs }}>
                       {hasDot && (
-                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: dotColor }} />
+                        <View style={{ width: spacing.sm, height: spacing.sm, borderRadius: radius.xs, backgroundColor: dotColor }} />
                       )}
                     </View>
                   </Pressable>
@@ -234,41 +236,36 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
         onRequestClose={() => setShowMonthPicker(false)}
       >
         <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
+          style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" }}
           onPress={() => setShowMonthPicker(false)}
         >
           <View
             style={{
-              backgroundColor: "#fff",
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              paddingTop: 10,
-              paddingBottom: insets.bottom + 16,
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radius.lg,
+              borderTopRightRadius: radius.lg,
+              paddingTop: spacing.xl,
+              paddingBottom: insets.bottom + spacing["4xl"],
               maxHeight: "55%",
             }}
           >
             {/* 핸들 */}
             <View
               style={{
-                width: 40,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: "#D9D9D9",
+                width: spacing["10xl"],
+                height: spacing.sm,
+                borderRadius: radius.xs,
+                backgroundColor: colors.hairline,
                 alignSelf: "center",
-                marginBottom: 16,
+                marginBottom: spacing["4xl"],
               }}
             />
 
             {/* 타이틀 */}
             <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "600",
-                color: "#999",
-                paddingHorizontal: 20,
-                marginBottom: 4,
-                letterSpacing: 0.3,
-              }}
+              variant="sortTrigger"
+              weight="semibold"
+              style={{ paddingHorizontal: spacing["5xl"], marginBottom: spacing.sm, letterSpacing: 0.3 }}
             >
               월 선택
             </Text>
@@ -291,9 +288,9 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
                   <Pressable
                     onPress={() => jumpToMonth(year, month)}
                     style={({ pressed }) => ({
-                      borderTopWidth: 0.5,
-                      borderTopColor: "#f0f0eb",
-                      backgroundColor: pressed ? "#f5f5f0" : isViewing ? "#f5f5f0" : "#fff",
+                      borderTopWidth: borderWidth.hairline,
+                      borderTopColor: colors.chip,
+                      backgroundColor: pressed ? colors.backgroundMuted : isViewing ? colors.backgroundMuted : colors.surface,
                     })}
                   >
                     <View
@@ -301,36 +298,34 @@ export function WeekCalendarBar({ items, selectedDate, onSelectDate, onWeekChang
                         height: MONTH_ROW_H,
                         flexDirection: "row",
                         alignItems: "center",
-                        paddingHorizontal: 20,
+                        paddingHorizontal: spacing["5xl"],
                       }}
                     >
                       <Text
-                        style={{
-                          flex: 1,
-                          fontSize: 15,
-                          color: isNow ? "#1D9E75" : "#1a1a1a",
-                          fontWeight: isViewing ? "600" : "400",
-                        }}
+                        variant="body"
+                        weight={isViewing ? "semibold" : "regular"}
+                        color={isNow ? "primary" : "foreground"}
+                        style={{ flex: 1 }}
                       >
                         {year}년 {month}월
                       </Text>
                       {isNow && (
                         <View
                           style={{
-                            backgroundColor: "#E1F5EE",
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 10,
-                            marginRight: isViewing ? 10 : 0,
+                            backgroundColor: colors.primarySoft,
+                            paddingHorizontal: spacing.lg,
+                            paddingVertical: spacing.xs,
+                            borderRadius: radius.chip,
+                            marginRight: isViewing ? spacing.xl : 0,
                           }}
                         >
-                          <Text style={{ fontSize: 11, color: "#1D9E75", fontWeight: "500" }}>
+                          <Text variant="control" color="primary">
                             이번 달
                           </Text>
                         </View>
                       )}
                       {isViewing && (
-                        <Text style={{ fontSize: 14, color: "#1D9E75", fontWeight: "500" }}>✓</Text>
+                        <RNText style={{ fontSize: 15, color: colors.primary }}>✓</RNText>
                       )}
                     </View>
                   </Pressable>

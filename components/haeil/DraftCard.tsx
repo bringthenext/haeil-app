@@ -1,6 +1,10 @@
-import { useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, Text as RNText, TextInput, View } from "react-native";
+import { Button } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
+import { colors, fontSize, radius } from "@/lib/tokens";
 import type { Item } from "@/lib/types";
+import { InputPreviewRow } from "./InputPreviewRow";
 import { ItemRow } from "./ItemRow";
 import { SortableList } from "./SortableList";
 import type { DragHandlers } from "./SortableList";
@@ -15,11 +19,12 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "deadline_desc", label: "마감일 ↓" },
 ];
 
-const VISIBLE_LIMIT = 10;
+const VISIBLE_LIMIT = 5;
 
 type Props = {
   items: Item[];
   previewText?: string;
+  previewScheduledDate?: string | null;
   onToggle: (id: string, checked: boolean) => void;
   /** inbox: item 분류 콜백 */
   onClassifyItem?: (itemId: string) => void;
@@ -37,6 +42,7 @@ type Props = {
   enableParentScroll?: () => void;
   /** 드래그 중 화면 가장자리 도달 시 자동 스크롤 (delta px) */
   scrollBy?: (delta: number) => void;
+  onPreviewLayout?: (y: number) => void;
 };
 
 function sortItems(items: Item[], sort: SortKey): Item[] {
@@ -71,6 +77,7 @@ function sortItems(items: Item[], sort: SortKey): Item[] {
 export function DraftCard({
   items,
   previewText,
+  previewScheduledDate = null,
   onToggle,
   onClassifyItem,
   onAddItem,
@@ -81,6 +88,7 @@ export function DraftCard({
   disableParentScroll,
   enableParentScroll,
   scrollBy,
+  onPreviewLayout,
 }: Props) {
   const [addText, setAddText] = useState("");
   const [sort, setSort] = useState<SortKey>("created_asc");
@@ -88,6 +96,7 @@ export function DraftCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isEscapingBottom, setIsEscapingBottom] = useState(false);
+  const [listTop, setListTop] = useState(0);
   const inputRef = useRef<TextInput>(null);
 
   // ── 분류하기 존 위치 측정 ────────────────────────────────────────────────────
@@ -121,29 +130,61 @@ export function DraftCard({
     setAddText("");
   }
 
+  const previewItem = useMemo<Item | null>(() => {
+    const trimmed = previewText?.trim();
+    if (!trimmed) return null;
+    const now = new Date().toISOString();
+    return {
+      id: "__input-preview__",
+      user_id: "",
+      paper_id: null,
+      content: trimmed,
+      is_checked: false,
+      scheduled_date: previewScheduledDate,
+      order: null,
+      created_at: now,
+      updated_at: now,
+      checked_at: null,
+      deleted_at: null,
+    };
+  }, [previewText, previewScheduledDate]);
+
   const unchecked = sortItems(items.filter((i) => !i.is_checked), sort);
   const checked = [...items.filter((i) => i.is_checked)].sort(
     (a, b) => new Date(b.checked_at!).getTime() - new Date(a.checked_at!).getTime(),
   );
-  const sorted = [...unchecked, ...checked];
-  const total = sorted.length;
+  const uncheckedRows = previewItem
+    ? sortItems([...items.filter((i) => !i.is_checked), previewItem], sort).map((item) =>
+        item.id === previewItem.id ? ({ type: "preview" as const, text: item.content }) : ({ type: "item" as const, item }),
+      )
+    : unchecked.map((item) => ({ type: "item" as const, item }));
+  const total = unchecked.length + checked.length;
+  const visibleTotal = total + (previewItem ? 1 : 0);
   const checkedCount = checked.length;
-  const needsExpand = total > VISIBLE_LIMIT;
-  const hiddenCount = total - VISIBLE_LIMIT;
-  const displayUnchecked = isExpanded ? unchecked : unchecked.slice(0, Math.min(VISIBLE_LIMIT, unchecked.length));
+  const needsExpand = visibleTotal > VISIBLE_LIMIT;
+  const hiddenCount = visibleTotal - VISIBLE_LIMIT;
+  const previewIndex = uncheckedRows.findIndex((row) => row.type === "preview");
+  const displayUncheckedRows = isExpanded ? uncheckedRows : uncheckedRows.slice(0, Math.min(VISIBLE_LIMIT, uncheckedRows.length));
+  const displayUncheckedItems = displayUncheckedRows
+    .filter((row): row is { type: "item"; item: Item } => row.type === "item")
+    .map((row) => row.item);
   const displayChecked = isExpanded
     ? checked
-    : checked.slice(0, Math.max(0, VISIBLE_LIMIT - unchecked.length));
+    : checked.slice(0, Math.max(0, VISIBLE_LIMIT - displayUncheckedRows.length));
   const isEmpty = total === 0 && !previewText;
+
+  useEffect(() => {
+    if (previewIndex >= VISIBLE_LIMIT) setIsExpanded(true);
+  }, [previewIndex]);
 
   return (
     <View
       style={{
         marginHorizontal: 12,
         marginBottom: 8,
-        borderRadius: 8,
+        borderRadius: radius.sm,
         borderWidth: 0.5,
-        borderColor: "#ccc",
+        borderColor: "#cccccc",
         borderStyle: "dashed",
         backgroundColor: "#f8f8f4",
         paddingHorizontal: 12,
@@ -154,8 +195,8 @@ export function DraftCard({
     >
       {/* 헤더 */}
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <Text style={{ fontSize: 10, color: "#aaa", fontWeight: "500", letterSpacing: 1.5 }}>
-          DRAFT
+        <Text variant="caption" style={{ letterSpacing: 1.5 }}>
+          TODO
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Pressable
@@ -163,13 +204,13 @@ export function DraftCard({
             style={{ flexDirection: "row", alignItems: "center", gap: 2 }}
             hitSlop={8}
           >
-            <Text style={{ fontSize: 10, color: "#aaa" }}>
+            <Text variant="sortTrigger">
               {SORT_OPTIONS.find((o) => o.key === sort)!.label}
             </Text>
-            <Text style={{ fontSize: 9, color: "#aaa" }}> ∨</Text>
+            <RNText style={{ color: colors.subtle, fontSize: 13 }}>∨</RNText>
           </Pressable>
           {total > 0 && (
-            <Text style={{ fontSize: 10, color: "#aaa" }}>{checkedCount}/{total}</Text>
+            <Text variant="meta">{checkedCount}/{total}</Text>
           )}
         </View>
       </View>
@@ -208,10 +249,10 @@ export function DraftCard({
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 13, color: sort === opt.key ? "#1D9E75" : "#555" }}>
+              <Text variant="meta" color={sort === opt.key ? "primary" : "body"}>
                 {opt.label}
               </Text>
-              {sort === opt.key && <Text style={{ color: "#1D9E75", fontSize: 11 }}>✓</Text>}
+              {sort === opt.key && <RNText style={{ color: colors.primary, fontSize: 13 }}>✓</RNText>}
             </Pressable>
           ))}
         </View>
@@ -222,57 +263,74 @@ export function DraftCard({
         <View
           style={{
             height: 0.5,
-            backgroundColor: "#1D9E75",
+            backgroundColor: colors.primary,
             borderRadius: 1,
             width: total > 0 ? `${(checkedCount / total) * 100}%` : "0%",
           }}
         />
       </View>
 
-      {/* 입력 미리보기 */}
-      {!!previewText && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6, opacity: 0.4 }}>
-          <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#1D9E75" }} />
-          <Text style={{ flex: 1, fontSize: 14, color: "#1D9E75" }}>{previewText}</Text>
-        </View>
-      )}
-
       {/* 미체크 아이템 — SortableList (RNGH 기반) */}
-      <View ref={sortableWrapRef}>
-        <SortableList
-          data={displayUnchecked}
-          keyExtractor={(item) => item.id}
-          renderItem={(item: Item, _: number, dh: DragHandlers) => (
-            <ItemRow
-              item={item}
-              onToggle={onToggle}
-              onClassify={onClassifyItem ? () => onClassifyItem(item.id) : undefined}
-              onLongPress={dh.onLongPress}
-              onPressOut={dh.onPressOut}
-              delayLongPress={dh.delayLongPress}
-            />
-          )}
-          onReorder={(newUnchecked) => {
-            setSort("custom"); // 드래그 리오더 시 자동으로 사용자 지정 전환
-            onReorderItems?.([...(newUnchecked as Item[]), ...checked]);
-          }}
-          itemHeight={32}
-          onDragStart={handleItemDragStart}
-          onDragEnd={handleItemDragEnd}
-          onEscapeBottom={onClassifyItem ? (item: Item) => { onClassifyItem(item.id); } : undefined}
-          onDragOutOfBounds={onClassifyItem ? (dir: "top" | "bottom" | null) => {
-            setIsEscapingBottom(dir === "bottom");
-          } : undefined}
-          onDragMoveY={onClassifyItem ? (absY: number) => {
-            if (classifyZoneY.current !== undefined) {
-              setIsEscapingBottom(absY >= classifyZoneY.current);
-            }
-          } : undefined}
-          classifyZoneYRef={onClassifyItem ? classifyZoneY : undefined}
-          disableParentScroll={disableParentScroll}
-          enableParentScroll={enableParentScroll}
-          scrollBy={scrollBy}
-        />
+      <View
+        ref={sortableWrapRef}
+        onLayout={(event) => setListTop(event.nativeEvent.layout.y)}
+      >
+        {previewItem ? (
+          displayUncheckedRows.map((row) =>
+            row.type === "preview" ? (
+              <InputPreviewRow
+                key="preview"
+                text={row.text}
+                onLayout={(event) => onPreviewLayout?.(listTop + event.nativeEvent.layout.y)}
+              />
+            ) : (
+              <ItemRow
+                key={row.item.id}
+                item={row.item}
+                onToggle={onToggle}
+                onClassify={onClassifyItem ? () => onClassifyItem(row.item.id) : undefined}
+              />
+            ),
+          )
+        ) : (
+          <SortableList
+            data={displayUncheckedItems}
+            keyExtractor={(item) => item.id}
+            renderItem={(item: Item, _: number, dh: DragHandlers) => (
+              <ItemRow
+                item={item}
+                onToggle={onToggle}
+                onClassify={onClassifyItem ? () => onClassifyItem(item.id) : undefined}
+                onLongPress={dh.onLongPress}
+                onPressOut={dh.onPressOut}
+                delayLongPress={dh.delayLongPress}
+              />
+            )}
+            onReorder={(newUnchecked) => {
+              setSort("custom"); // 드래그 리오더 시 자동으로 사용자 지정 전환
+              const reordered = newUnchecked as Item[];
+              const reorderedIds = new Set(reordered.map((item) => item.id));
+              const hiddenUnchecked = unchecked.filter((item) => !reorderedIds.has(item.id));
+              onReorderItems?.([...reordered, ...hiddenUnchecked, ...checked]);
+            }}
+            itemHeight={32}
+            onDragStart={handleItemDragStart}
+            onDragEnd={handleItemDragEnd}
+            onEscapeBottom={onClassifyItem ? (item: Item) => { onClassifyItem(item.id); } : undefined}
+            onDragOutOfBounds={onClassifyItem ? (dir: "top" | "bottom" | null) => {
+              setIsEscapingBottom(dir === "bottom");
+            } : undefined}
+            onDragMoveY={onClassifyItem ? (absY: number) => {
+              if (classifyZoneY.current !== undefined) {
+                setIsEscapingBottom(absY >= classifyZoneY.current);
+              }
+            } : undefined}
+            classifyZoneYRef={onClassifyItem ? classifyZoneY : undefined}
+            disableParentScroll={disableParentScroll}
+            enableParentScroll={enableParentScroll}
+            scrollBy={scrollBy}
+          />
+        )}
       </View>
 
       {/* 분류하기 드롭 존 — 드래그 중에만 표시 */}
@@ -281,35 +339,32 @@ export function DraftCard({
           style={{
             marginTop: 6,
             paddingVertical: 14,
-            borderRadius: 8,
+            borderRadius: radius.sm,
             borderWidth: isEscapingBottom ? 1.5 : 1,
             borderStyle: "dashed",
-            borderColor: isEscapingBottom ? "#1D9E75" : "#aaa",
-            backgroundColor: isEscapingBottom ? "#E1F5EE" : "#f0f0eb",
+            borderColor: isEscapingBottom ? colors.primary : "#aaaaaa",
+            backgroundColor: isEscapingBottom ? colors.primarySoft : colors.chip,
             alignItems: "center",
             justifyContent: "center",
             gap: 2,
           }}
         >
-          <Text
-            style={{
-              fontSize: 13,
-              color: isEscapingBottom ? "#1D9E75" : "#666",
-              fontWeight: isEscapingBottom ? "700" : "500",
-              letterSpacing: 0.2,
-            }}
-          >
+          <Text variant="label" color={isEscapingBottom ? "primary" : "body"} weight={isEscapingBottom ? "bold" : "medium"} style={{ letterSpacing: 0.2 }}>
             {isEscapingBottom ? "✓  여기서 손 떼면 분류" : "↓  분류하기"}
           </Text>
           {!isEscapingBottom && (
-            <Text style={{ fontSize: 10, color: "#999" }}>이 영역으로 드래그하세요</Text>
+            <Text variant="caption">이 영역으로 드래그하세요</Text>
           )}
         </View>
       )}
 
       {/* 체크된 아이템 */}
       {displayChecked.map((item) => (
-        <ItemRow key={item.id} item={item} onToggle={onToggle} />
+        <ItemRow
+          key={item.id}
+          item={item}
+          onToggle={onToggle}
+        />
       ))}
 
       {/* 더보기 / 접기 */}
@@ -318,7 +373,7 @@ export function DraftCard({
           onPress={() => setIsExpanded(true)}
           style={{ paddingTop: 8, marginTop: 4, borderTopWidth: 0.5, borderTopColor: "#eee" }}
         >
-          <Text style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>
+          <Text variant="control" align="center">
             {hiddenCount}개 더보기
           </Text>
         </Pressable>
@@ -328,14 +383,14 @@ export function DraftCard({
           onPress={() => setIsExpanded(false)}
           style={{ paddingTop: 8, marginTop: 4, borderTopWidth: 0.5, borderTopColor: "#eee" }}
         >
-          <Text style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>접기</Text>
+          <Text variant="control" align="center">접기</Text>
         </Pressable>
       )}
 
       {/* 빈 상태 */}
       {isEmpty && !onAddItem && (
         <View style={{ paddingVertical: 12 }}>
-          <Text style={{ fontSize: 11, color: "#ccc", textAlign: "center" }}>
+          <Text variant="caption" color="disabled" align="center">
             아직 항목이 없어요.
           </Text>
         </View>
@@ -345,11 +400,11 @@ export function DraftCard({
       {onAddItem && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8, marginTop: 4, borderTopWidth: 0.5, borderTopColor: "#eee" }}>
           <Pressable onPress={() => inputRef.current?.focus()} hitSlop={8}>
-            <Text style={{ color: "#bbb", fontSize: 16 }}>+</Text>
+            <RNText style={{ color: colors.disabled, fontSize: 18 }}>+</RNText>
           </Pressable>
           <TextInput
             ref={inputRef}
-            style={{ flex: 1, fontSize: 14, color: "#1a1a1a", paddingVertical: 2 }}
+            style={{ flex: 1, fontSize: fontSize.base, color: colors.foreground, paddingVertical: 2 }}
             placeholder="항목 추가..."
             placeholderTextColor="#ccc"
             value={addText}
@@ -364,12 +419,7 @@ export function DraftCard({
       {/* 완료 버튼 */}
       {onComplete && total > 0 && (
         <View style={{ alignItems: "flex-end", paddingTop: 10, marginTop: 6, borderTopWidth: 0.5, borderTopColor: "#eee" }}>
-          <Pressable
-            onPress={onComplete}
-            style={{ backgroundColor: "#1D9E75", borderRadius: 6, paddingHorizontal: 16, paddingVertical: 6 }}
-          >
-            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "500" }}>완료</Text>
-          </Pressable>
+          <Button onPress={onComplete} size="sm">완료</Button>
         </View>
       )}
     </View>

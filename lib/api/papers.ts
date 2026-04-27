@@ -54,6 +54,24 @@ export async function updatePaperOrders(
   if (failed?.error) throw failed.error;
 }
 
+/** Paper 이름 변경 */
+export async function updatePaperName(id: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from("papers")
+    .update({ name })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Paper를 다른 envelope/inbox로 이동 */
+export async function updatePaperEnvelope(id: string, envelopeId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("papers")
+    .update({ envelope_id: envelopeId })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /** 즐겨찾기 토글 */
 export async function toggleFavorite(id: string, current: boolean): Promise<void> {
   const { error } = await supabase
