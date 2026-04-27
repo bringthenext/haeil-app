@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
+import Toast from "react-native-toast-message";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -15,26 +17,36 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ClassifySheet } from "@/components/haeil/ClassifySheet";
 import { CompletedPaperCard } from "@/components/haeil/CompletedPaperCard";
+import { DeleteConfirmModal } from "@/components/haeil/DeleteConfirmModal";
 import { DraftCard } from "@/components/haeil/DraftCard";
 import { InputBar } from "@/components/haeil/InputBar";
 import { ItemRow } from "@/components/haeil/ItemRow";
+import { MoveItemSheet } from "@/components/haeil/MoveItemSheet";
 import { PaperCard } from "@/components/haeil/PaperCard";
 import { useSession } from "@/hooks/useSession";
 import {
   addItem,
   assignAllDraftItemsToPaper,
+  assignItemToPaper,
   classifyItemToEnvelope,
+  deleteItem,
   getInboxItems,
   getItemsByPaperIds,
   toggleItem,
+  updateItemContent,
   updateItemOrders,
 } from "@/lib/api/items";
-import { addPaper, completePaper, getPapers, updatePaperOrders } from "@/lib/api/papers";
+import { addPaper, completePaper, deletePaper, getPapers, updatePaperName, updatePaperOrders } from "@/lib/api/papers";
 import { SortableList } from "@/components/haeil/SortableList";
 import { addWave, getRoutineWaveCountsByPaperIds } from "@/lib/api/waves";
 import { getEnvelopes } from "@/lib/api/envelopes";
 import type { Envelope, Item, Paper } from "@/lib/types";
 
+const COMPOSER_PREVIEW_INSET = 180;
+const DELETE_WARNING_SKIP_KEY = "haeil.skipDeleteWarning";
+const PREVIEW_TOP_GUARD = 16;
+const PREVIEW_ROW_HEIGHT = 44;
+const PREVIEW_BOTTOM_GUARD = 16;
 
 function makeOptimistic(
   userId: string,
@@ -77,10 +89,22 @@ export default function InboxScreen() {
   const [isAddingPaper, setIsAddingPaper] = useState(false);
   const [newPaperName, setNewPaperName] = useState("");
   const [selectedInputPaperId, setSelectedInputPaperId] = useState<string | null>(null);
+  const [inputScheduledDate, setInputScheduledDate] = useState<string | null>(null);
   const [waveCounts, setWaveCounts] = useState<Record<string, number>>({});
   const [isDragging, setIsDragging] = useState(false);
+  const [moveItemTarget, setMoveItemTarget] = useState<Item | null>(null);
+  const [paperEditModeId, setPaperEditModeId] = useState<string | null>(null);
+  const [paperEditName, setPaperEditName] = useState("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemContent, setEditingItemContent] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "paper"; paper: Paper } | null>(null);
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const mainScrollRef = useRef<ScrollView>(null);
   const mainScrollOffsetRef = useRef(0);
+  const draftCardYRef = useRef(0);
+  const draftPreviewOffsetRef = useRef<number | null>(null);
+  const paperCardYRefs = useRef(new Map<string, number>());
+  const paperPreviewOffsetRefs = useRef(new Map<string, number>());
   const newPaperInputRef = useRef<TextInput>(null);
 
   // ── 데이터 패치 ──────────────────────────────────────────────────────────────
@@ -178,6 +202,10 @@ export default function InboxScreen() {
     if (paperId) setExpandedPaperId(paperId); // 선택된 paper 자동 펼침
   }
 
+  const handlePreviewMetaChange = useCallback((meta: { paperId: string | null; scheduledDate: string | null }) => {
+    setInputScheduledDate(meta.scheduledDate);
+  }, []);
+
   // ── 하단 InputBar 제출 (날짜 + paper 선택 포함) ────────────────────────────
   async function handleBottomSubmit(content: string, scheduledDate: string | null, paperId: string | null) {
     if (paperId) {
@@ -244,6 +272,115 @@ export default function InboxScreen() {
           i.id === itemId ? { ...i, is_checked: !checked, checked_at: null } : i,
         ),
       }));
+    }
+  }
+
+  async function requestDeleteTarget(target: typeof deleteTarget) {
+    if (!target) return;
+    const skip = await AsyncStorage.getItem(DELETE_WARNING_SKIP_KEY);
+    if (skip === "1") {
+      await performDelete(target);
+      return;
+    }
+    setDeleteTarget(target);
+  }
+
+  async function deleteItemImmediately(item: Item) {
+    if (item.paper_id) {
+      setItemsByPaperId((prev) => ({
+        ...prev,
+        [item.paper_id!]: (prev[item.paper_id!] ?? []).filter((i) => i.id !== item.id),
+      }));
+    } else {
+      setDraftItems((prev) => prev.filter((i) => i.id !== item.id));
+    }
+    try {
+      await deleteItem(item.id);
+      Toast.show({ type: "success", text1: "삭제되었습니다." });
+    } catch {
+      Toast.show({ type: "error", text1: "삭제에 실패했어요." });
+      await fetchAll();
+    }
+  }
+
+  async function performDelete(target: NonNullable<typeof deleteTarget>) {
+    const paper = target.paper;
+    setInboxPapers((prev) => prev.filter((p) => p.id !== paper.id));
+    if (expandedPaperId === paper.id) setExpandedPaperId(null);
+    if (paperEditModeId === paper.id) setPaperEditModeId(null);
+    try {
+      await deletePaper(paper.id);
+      Toast.show({ type: "success", text1: "삭제되었습니다.", text2: "설정 > 최근 삭제됨에서 30일 내 복구할 수 있어요." });
+    } catch {
+      Toast.show({ type: "error", text1: "삭제에 실패했어요." });
+      await fetchAll();
+    }
+  }
+
+  async function handleDeleteConfirm(dontShowAgain: boolean) {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (dontShowAgain) await AsyncStorage.setItem(DELETE_WARNING_SKIP_KEY, "1");
+    await performDelete(target);
+  }
+
+  async function handleMoveItem(targetPaperId: string) {
+    if (!moveItemTarget) return;
+    const item = moveItemTarget;
+    setMoveItemTarget(null);
+    try {
+      await assignItemToPaper(item.id, targetPaperId);
+      Toast.show({ type: "success", text1: "이동되었습니다." });
+      await fetchAll();
+    } catch {
+      Toast.show({ type: "error", text1: "이동에 실패했어요." });
+    }
+  }
+
+  function startPaperEdit(paper: Paper) {
+    setExpandedPaperId(paper.id);
+    setPaperEditModeId(paper.id);
+    setPaperEditName(paper.name ?? "");
+  }
+
+  function startItemEdit(item: Item) {
+    setEditingItemId(item.id);
+    setEditingItemContent(item.content);
+  }
+
+  async function saveItemEdit(item: Item) {
+    if (editingItemId !== item.id) return;
+    const content = editingItemContent.trim();
+    if (!content) return;
+    setEditingItemId(null);
+    if (item.paper_id) {
+      setItemsByPaperId((prev) => ({
+        ...prev,
+        [item.paper_id!]: (prev[item.paper_id!] ?? []).map((i) => (i.id === item.id ? { ...i, content } : i)),
+      }));
+    } else {
+      setDraftItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, content } : i)));
+    }
+    try {
+      await updateItemContent(item.id, content);
+    } catch {
+      Toast.show({ type: "error", text1: "저장에 실패했어요." });
+      await fetchAll();
+    }
+  }
+
+  async function savePaperEdit(paper: Paper) {
+    const name = paperEditName.trim();
+    if (!name) return;
+    setPaperEditModeId(null);
+    setInboxPapers((prev) => prev.map((p) => (p.id === paper.id ? { ...p, name } : p)));
+    try {
+      await updatePaperName(paper.id, name);
+      Toast.show({ type: "success", text1: "이름이 변경되었습니다." });
+    } catch {
+      Toast.show({ type: "error", text1: "저장에 실패했어요." });
+      await fetchAll();
     }
   }
 
@@ -317,6 +454,46 @@ export default function InboxScreen() {
   // ── 파생 상태 ─────────────────────────────────────────────────────────────────
   const activePapers = inboxPapers.filter((p) => p.status === "active");
   const completedPapers = inboxPapers.filter((p) => p.status === "completed");
+  const composerBottomPadding = inputText.trim() ? COMPOSER_PREVIEW_INSET : 24;
+
+  function getPreviewScrollY(previewY: number): number {
+    const currentY = mainScrollOffsetRef.current;
+    const topLimit = currentY + PREVIEW_TOP_GUARD;
+    const bottomLimit = currentY + scrollViewportHeight - composerBottomPadding - PREVIEW_BOTTOM_GUARD;
+    if (previewY < topLimit) return Math.max(0, previewY - PREVIEW_TOP_GUARD);
+    if (previewY + PREVIEW_ROW_HEIGHT > bottomLimit) {
+      return Math.max(0, previewY + PREVIEW_ROW_HEIGHT - scrollViewportHeight + composerBottomPadding + PREVIEW_BOTTOM_GUARD);
+    }
+    return currentY;
+  }
+
+  function getAbsolutePreviewY(): number | null {
+    if (selectedInputPaperId) {
+      const cardY = paperCardYRefs.current.get(selectedInputPaperId);
+      const previewOffset = paperPreviewOffsetRefs.current.get(selectedInputPaperId);
+      if (cardY === undefined || previewOffset === undefined) return null;
+      return cardY + previewOffset;
+    }
+    if (draftPreviewOffsetRef.current === null) return null;
+    return draftCardYRef.current + draftPreviewOffsetRef.current;
+  }
+
+  function requestPreviewScroll() {
+    requestAnimationFrame(() => {
+      const previewY = getAbsolutePreviewY();
+      if (previewY === null) return;
+      mainScrollRef.current?.scrollTo({
+        y: getPreviewScrollY(previewY),
+        animated: true,
+      });
+    });
+  }
+
+  useEffect(() => {
+    if (!inputText.trim()) return;
+    if (selectedInputPaperId) setExpandedPaperId(selectedInputPaperId);
+    requestPreviewScroll();
+  }, [inputText, selectedInputPaperId, scrollViewportHeight, composerBottomPadding]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
@@ -348,12 +525,13 @@ export default function InboxScreen() {
         <ScrollView
           ref={mainScrollRef}
           style={{ flex: 1 }}
+          onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={Keyboard.dismiss}
           scrollEnabled={!isDragging}
           scrollEventThrottle={16}
           onScroll={(e) => { mainScrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
-          contentContainerStyle={{ paddingBottom: 8 }}
+          contentContainerStyle={{ paddingBottom: composerBottomPadding }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1D9E75" />
           }
@@ -361,23 +539,30 @@ export default function InboxScreen() {
           {tab === "active" ? (
             <>
               {/* Draft Card — paper 선택 중이 아닐 때만 preview */}
-              <DraftCard
-                items={draftItems}
-                previewText={selectedInputPaperId ? undefined : inputText}
-                onToggle={handleToggleDraft}
-                onClassifyItem={(itemId) => setClassifyItemId(itemId)}
-                onComplete={handleCompleteDraft}
-                onReorderItems={handleReorderDraftItems}
-                onItemDragStart={() => setIsDragging(true)}
-                onItemDragEnd={() => setIsDragging(false)}
-                disableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: false })}
-                enableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: true })}
-                scrollBy={(delta) => {
-                  const newY = mainScrollOffsetRef.current + delta;
-                  mainScrollOffsetRef.current = newY;
-                  mainScrollRef.current?.scrollTo({ y: newY, animated: false });
-                }}
-              />
+              <View onLayout={(event) => { draftCardYRef.current = event.nativeEvent.layout.y; }}>
+                <DraftCard
+                  items={draftItems}
+                  previewText={selectedInputPaperId ? undefined : inputText}
+                  previewScheduledDate={inputScheduledDate}
+                  onToggle={handleToggleDraft}
+                  onClassifyItem={(itemId) => setClassifyItemId(itemId)}
+                  onComplete={handleCompleteDraft}
+                  onReorderItems={handleReorderDraftItems}
+                  onPreviewLayout={(y) => {
+                    draftPreviewOffsetRef.current = y;
+                    requestPreviewScroll();
+                  }}
+                  onItemDragStart={() => setIsDragging(true)}
+                  onItemDragEnd={() => setIsDragging(false)}
+                  disableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: false })}
+                  enableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: true })}
+                  scrollBy={(delta) => {
+                    const newY = mainScrollOffsetRef.current + delta;
+                    mainScrollOffsetRef.current = newY;
+                    mainScrollRef.current?.scrollTo({ y: newY, animated: false });
+                  }}
+                />
+              </View>
 
               {/* Active inbox papers — 롱탭 드래그로 순서 변경 */}
               <SortableList
@@ -388,32 +573,52 @@ export default function InboxScreen() {
                 onDragStart={() => setIsDragging(true)}
                 onDragEnd={() => setIsDragging(false)}
                 renderItem={(paper, _, dh) => (
-                  <PaperCard
-                    paper={paper}
-                    items={itemsByPaperId[paper.id] ?? []}
-                    isExpanded={expandedPaperId === paper.id}
-                    onToggleExpand={() =>
-                      setExpandedPaperId(expandedPaperId === paper.id ? null : paper.id)
-                    }
-                    onToggleItem={(id, checked) => handleTogglePaperItem(paper.id, id, checked)}
-                    onComplete={() => handleComplete(paper)}
-                    onAddItem={(content) => handleAddToPaper(paper, content, null)}
-                    onReorderItems={(newItems) => handleReorderInboxItems(paper.id, newItems)}
-                    onClassifyItem={(itemId) => setClassifyPaperItemId({ itemId, fromPaperId: paper.id })}
-                    previewText={selectedInputPaperId === paper.id ? inputText : undefined}
-                    onLongPress={dh.onLongPress}
-                    onPressOut={dh.onPressOut}
-                    delayLongPress={dh.delayLongPress}
-                    onItemDragStart={() => setIsDragging(true)}
-                    onItemDragEnd={() => setIsDragging(false)}
-                    disableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: false })}
-                    enableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: true })}
-                    scrollBy={(delta) => {
-                      const newY = mainScrollOffsetRef.current + delta;
-                      mainScrollOffsetRef.current = newY;
-                      mainScrollRef.current?.scrollTo({ y: newY, animated: false });
-                    }}
-                  />
+                  <View onLayout={(event) => { paperCardYRefs.current.set(paper.id, event.nativeEvent.layout.y); }}>
+                    <PaperCard
+                      paper={paper}
+                      items={itemsByPaperId[paper.id] ?? []}
+                      isExpanded={expandedPaperId === paper.id}
+                      onToggleExpand={() =>
+                        setExpandedPaperId(expandedPaperId === paper.id ? null : paper.id)
+                      }
+                      onToggleItem={(id, checked) => handleTogglePaperItem(paper.id, id, checked)}
+                      onComplete={() => handleComplete(paper)}
+                      onAddItem={(content) => handleAddToPaper(paper, content, null)}
+                      onReorderItems={(newItems) => handleReorderInboxItems(paper.id, newItems)}
+                      onClassifyItem={(itemId) => setClassifyPaperItemId({ itemId, fromPaperId: paper.id })}
+                      isPaperEditMode={paperEditModeId === paper.id}
+                      editName={paperEditModeId === paper.id ? paperEditName : paper.name ?? ""}
+                      onChangeEditName={setPaperEditName}
+                      onStartPaperEdit={() => startPaperEdit(paper)}
+                      onSavePaperEdit={() => savePaperEdit(paper)}
+                      onDeletePaper={() => requestDeleteTarget({ type: "paper", paper })}
+                      onMoveItem={setMoveItemTarget}
+                      onDeleteItem={deleteItemImmediately}
+                      editingItemId={editingItemId}
+                      editItemContent={editingItemContent}
+                      onStartEditItem={startItemEdit}
+                      onChangeEditItemContent={setEditingItemContent}
+                      onSaveEditItem={saveItemEdit}
+                      previewText={selectedInputPaperId === paper.id ? inputText : undefined}
+                      previewScheduledDate={inputScheduledDate}
+                      onPreviewLayout={(y) => {
+                        paperPreviewOffsetRefs.current.set(paper.id, y);
+                        requestPreviewScroll();
+                      }}
+                      onLongPress={dh.onLongPress}
+                      onPressOut={dh.onPressOut}
+                      delayLongPress={dh.delayLongPress}
+                      onItemDragStart={() => setIsDragging(true)}
+                      onItemDragEnd={() => setIsDragging(false)}
+                      disableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: false })}
+                      enableParentScroll={() => mainScrollRef.current?.setNativeProps({ scrollEnabled: true })}
+                      scrollBy={(delta) => {
+                        const newY = mainScrollOffsetRef.current + delta;
+                        mainScrollOffsetRef.current = newY;
+                        mainScrollRef.current?.scrollTo({ y: newY, animated: false });
+                      }}
+                    />
+                  </View>
                 )}
               />
 
@@ -439,7 +644,7 @@ export default function InboxScreen() {
                 onPress={() => { setIsAddingPaper(true); setTimeout(() => newPaperInputRef.current?.focus(), 80); }}
                 style={{ marginHorizontal: 12, marginTop: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 10, borderRadius: 8, borderWidth: 0.5, borderColor: "#ccc", borderStyle: "dashed" }}
               >
-                <Text style={{ fontSize: 11, color: "#aaa" }}>+  새 paper</Text>
+                <Text style={{ fontSize: 13, color: "#888" }}>+  새 paper</Text>
               </Pressable>
             </>
           ) : (
@@ -451,7 +656,7 @@ export default function InboxScreen() {
                   onPress={() => setCompletedSort((s) => s === "desc" ? "asc" : "desc")}
                   style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 12, borderWidth: 0.5, borderColor: "#ddd" }}
                 >
-                  <Text style={{ fontSize: 11, color: "#888" }}>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: "#888" }}>
                     {completedSort === "desc" ? "최신순 ↓" : "오래된순 ↑"}
                   </Text>
                 </Pressable>
@@ -493,10 +698,31 @@ export default function InboxScreen() {
             onChangeText={setInputText}
             onSubmit={handleBottomSubmit}
             onPaperSelect={handleInputPaperSelect}
+            onAddPaperPress={() => { setIsAddingPaper(true); setTimeout(() => newPaperInputRef.current?.focus(), 80); }}
+            onPreviewMetaChange={handlePreviewMetaChange}
             papers={activePapers.filter((p) => p.name !== null).map((p) => ({ id: p.id, name: p.name! }))}
           />
         )}
       </KeyboardAvoidingView>
+
+      <MoveItemSheet
+        visible={moveItemTarget !== null}
+        papers={activePapers.filter((p) => p.name !== null).map((p) => ({ id: p.id, name: p.name!, envelopeId: null, envelopeName: "Inbox" }))}
+        currentPaperId={moveItemTarget?.paper_id}
+        currentEnvelopeId={null}
+        currentEnvelopeName="Inbox"
+        onSelect={handleMoveItem}
+        onClose={() => setMoveItemTarget(null)}
+      />
+
+      <DeleteConfirmModal
+        visible={deleteTarget !== null}
+        title="삭제할까요?"
+        message="이 paper와 안의 항목들이 삭제됩니다."
+        recoveryHint="설정 > 최근 삭제됨에서 30일 내 복구할 수 있어요."
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Draft item → Envelope 분류 시트 */}
       <ClassifySheet

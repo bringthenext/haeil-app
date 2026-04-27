@@ -57,6 +57,15 @@ export async function toggleItem(
   if (error) throw error;
 }
 
+/** 아이템 내용 변경 */
+export async function updateItemContent(id: string, content: string): Promise<void> {
+  const { error } = await supabase
+    .from("items")
+    .update({ content })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /** inbox draft 아이템 전체를 특정 paper로 이동 */
 export async function assignAllDraftItemsToPaper(paperId: string, userId: string): Promise<void> {
   const { error } = await supabase

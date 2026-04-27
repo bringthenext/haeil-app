@@ -50,11 +50,11 @@ export function FavoriteSheet({
 
           <Text
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: "600",
               color: "#999",
               paddingHorizontal: 20,
-              marginBottom: 4,
+              marginBottom: 8,
               letterSpacing: 0.3,
             }}
           >

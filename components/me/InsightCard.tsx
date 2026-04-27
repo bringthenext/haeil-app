@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text as RNText, View } from "react-native";
 
+import { Text } from "@/components/ui/Text";
 import { getStreakStats, getWeekWaveStats, getYearlyWaveMap } from "@/lib/api/stats";
+import { colors, radius } from "@/lib/tokens";
 
 type Insight = { emoji: string; text: string };
 
@@ -67,8 +69,8 @@ export function InsightCard() {
   return (
     <View
       style={{
-        borderRadius: 16,
-        backgroundColor: "#E1F5EE",
+        borderRadius: radius.lg,
+        backgroundColor: colors.primarySoft,
         padding: 16,
         marginBottom: 10,
         flexDirection: "row",
@@ -76,8 +78,8 @@ export function InsightCard() {
         gap: 12,
       }}
     >
-      <Text style={{ fontSize: 28 }}>{insight.emoji}</Text>
-      <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: "#0F6E56", lineHeight: 20 }}>
+      <RNText style={{ fontSize: 28 }}>{insight.emoji}</RNText>
+      <Text size="base" weight="medium" color="primaryDark" style={{ flex: 1 }}>
         {insight.text}
       </Text>
     </View>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text as RNText, View } from "react-native";
 
+import { Text } from "@/components/ui/Text";
+import { colors } from "@/lib/tokens";
 import { syncUserBadges } from "@/lib/api/badges";
 import { BADGES, NORMAL_BADGES, type BadgeDef } from "@/lib/badges";
 
@@ -29,19 +31,16 @@ function BadgeItem({ badge, unlocked, hidden }: BadgeItemProps) {
           marginBottom: 6,
         }}
       >
-        <Text style={{ fontSize: 24 }}>
+        <RNText style={{ fontSize: 24 }}>
           {isHiddenLocked ? "?" : badge.icon}
-        </Text>
+        </RNText>
       </View>
       <Text
         numberOfLines={2}
-        style={{
-          fontSize: 10,
-          textAlign: "center",
-          color: "#1a1a1a",
-          fontWeight: unlocked ? "600" : "400",
-          lineHeight: 13,
-        }}
+        variant="meta"
+        weight={unlocked ? "semibold" : "regular"}
+        color="foreground"
+        align="center"
       >
         {isHiddenLocked ? "???" : badge.name}
       </Text>
@@ -62,7 +61,7 @@ export function ChallengesTab() {
   if (!unlockedIds) {
     return (
       <View className="items-center justify-center py-20">
-        <Text className="text-xs text-[#999999]">불러오는 중...</Text>
+        <Text variant="meta">불러오는 중...</Text>
       </View>
     );
   }
@@ -76,8 +75,8 @@ export function ChallengesTab() {
       {/* 전체 진행도 */}
       <View className="mb-4 rounded-2xl bg-white p-4">
         <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-[#1a1a1a]">전체 달성</Text>
-          <Text className="text-sm font-bold text-[#1D9E75]">
+          <Text variant="label" color="foreground">전체 달성</Text>
+          <Text variant="label" color="primary" weight="bold">
             {unlockedNormal} / {totalNormal}
           </Text>
         </View>
@@ -87,7 +86,7 @@ export function ChallengesTab() {
               height: "100%",
               width: `${progressPct}%`,
               borderRadius: 99,
-              backgroundColor: "#1D9E75",
+              backgroundColor: colors.primary,
             }}
           />
         </View>
@@ -98,7 +97,7 @@ export function ChallengesTab() {
         const catBadges = BADGES.filter((b) => b.category === cat);
         return (
           <View key={cat} className="mb-4 rounded-2xl bg-white p-4">
-            <Text className="mb-3 text-xs font-semibold text-[#555555]">{cat}</Text>
+            <Text variant="label" style={{ marginBottom: 12 }}>{cat}</Text>
             <View className="flex-row flex-wrap">
               {catBadges.map((badge) => (
                 <BadgeItem

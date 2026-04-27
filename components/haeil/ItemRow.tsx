@@ -1,4 +1,10 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Pressable, Text as RNText, TextInput, View } from "react-native";
+import { Pencil } from "lucide-react-native";
+import { Swipeable } from "react-native-gesture-handler";
+
+import { Text } from "@/components/ui/Text";
+import { colors, fontSize, radius, spacing } from "@/lib/tokens";
 import type { Item } from "@/lib/types";
 
 type Props = {
@@ -12,6 +18,14 @@ type Props = {
   onLongPress?: () => void;
   onPressOut?: () => void;
   delayLongPress?: number;
+  onMove?: () => void;
+  onDelete?: () => void;
+  canEditContent?: boolean;
+  isEditingContent?: boolean;
+  editContent?: string;
+  onStartEditContent?: () => void;
+  onChangeEditContent?: (content: string) => void;
+  onSaveEditContent?: () => void;
 };
 
 function formatTime(isoString: string): string {
@@ -42,10 +56,36 @@ function formatScheduledDate(dateStr: string): string {
   return `${month}/${day}`;
 }
 
-export function ItemRow({ item, onToggle, showTagIcon = true, onClassify, suppressCheckedStyle = false, onLongPress, onPressOut, delayLongPress = 400 }: Props) {
+export function ItemRow({
+  item,
+  onToggle,
+  showTagIcon = true,
+  onClassify,
+  suppressCheckedStyle = false,
+  onLongPress,
+  onPressOut,
+  delayLongPress = 400,
+  onMove,
+  onDelete,
+  canEditContent = false,
+  isEditingContent = false,
+  editContent,
+  onStartEditContent,
+  onChangeEditContent,
+  onSaveEditContent,
+}: Props) {
   const hasDate = !!item.scheduled_date;
+  const hasSwipeAction = !!onMove || !!onDelete;
+  const swipeableRef = useRef<Swipeable>(null);
+  const didTriggerSwipeActionRef = useRef(false);
+  const editInputRef = useRef<TextInput>(null);
 
-  return (
+  useEffect(() => {
+    if (!isEditingContent) return;
+    requestAnimationFrame(() => editInputRef.current?.focus());
+  }, [isEditingContent]);
+
+  const row = (
     <Pressable
       onLongPress={onLongPress ?? onClassify}
       onPressOut={onPressOut}
@@ -58,9 +98,16 @@ export function ItemRow({ item, onToggle, showTagIcon = true, onClassify, suppre
         className="flex-shrink-0"
       >
         <View
-          className={`w-5 h-5 rounded-full border-[1.5px] items-center justify-center ${
-            item.is_checked ? "bg-primary border-primary" : "border-[#ccc]"
-          }`}
+          style={{
+            alignItems: "center",
+            borderColor: item.is_checked ? colors.primary : "#cccccc",
+            borderRadius: 10,
+            borderWidth: 1.5,
+            height: 20,
+            justifyContent: "center",
+            width: 20,
+            backgroundColor: item.is_checked ? colors.primary : "transparent",
+          }}
         >
           {item.is_checked && (
             <View
@@ -77,25 +124,45 @@ export function ItemRow({ item, onToggle, showTagIcon = true, onClassify, suppre
         </View>
       </Pressable>
 
-      <Pressable
-        onPress={() => onToggle(item.id, !item.is_checked)}
-        style={{ flex: 1 }}
-        hitSlop={4}
-      >
-        <Text
-          className={`text-sm ${
-            item.is_checked && !suppressCheckedStyle ? "text-[#999] line-through" : "text-[#1a1a1a]"
-          }`}
-          numberOfLines={3}
+      {isEditingContent ? (
+        <TextInput
+          ref={editInputRef}
+          value={editContent ?? item.content}
+          onChangeText={onChangeEditContent}
+          onSubmitEditing={onSaveEditContent}
+          onBlur={onSaveEditContent}
+          style={{ flex: 1, color: colors.foreground, fontSize: fontSize.base, paddingVertical: 0 }}
+          placeholder="item 이름"
+          placeholderTextColor={colors.disabled}
+          returnKeyType="done"
+        />
+      ) : (
+        <Pressable
+          onPress={() => onToggle(item.id, !item.is_checked)}
+          style={{ flex: 1 }}
+          hitSlop={4}
         >
-          {item.content}
-        </Text>
-      </Pressable>
+          <Text
+            size="base"
+            color={item.is_checked && !suppressCheckedStyle ? "subtle" : "foreground"}
+            numberOfLines={3}
+            style={{ textDecorationLine: item.is_checked && !suppressCheckedStyle ? "line-through" : "none" }}
+          >
+            {item.content}
+          </Text>
+        </Pressable>
+      )}
+
+      {canEditContent && !isEditingContent && (
+        <Pressable onPress={onStartEditContent} hitSlop={8}>
+          <Pencil size={14} color={colors.subtle} />
+        </Pressable>
+      )}
 
       {/* 날짜 칩: 체크 여부와 무관하게 항상 표시 */}
       {hasDate && (
         <View className="bg-[#f0f0eb] rounded-full px-2 py-0.5">
-          <Text className="text-[10px] text-[#888]">
+          <Text size="xs" color="muted">
             {formatScheduledDate(item.scheduled_date!)}
           </Text>
         </View>
@@ -103,18 +170,68 @@ export function ItemRow({ item, onToggle, showTagIcon = true, onClassify, suppre
 
       {/* 체크 시각 or ⊹ 아이콘 */}
       {item.is_checked && item.checked_at ? (
-        <Text className="text-[10px] text-[#aaa]">
+        <Text size="xs" color="subtle">
           {formatTime(item.checked_at)}
         </Text>
       ) : onClassify ? (
         <Pressable onPress={onClassify} hitSlop={8}>
-          <Text style={{ color: "#bbb", fontSize: 16 }}>⊹</Text>
+          <RNText style={{ color: colors.disabled, fontSize: 16 }}>⊹</RNText>
         </Pressable>
       ) : (
         !hasDate && showTagIcon && (
-          <Text className="text-[#bbb] text-sm">⊹</Text>
+          <RNText style={{ color: colors.disabled, fontSize: 16 }}>⊹</RNText>
         )
       )}
     </Pressable>
+  );
+
+  if (!hasSwipeAction) return row;
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      overshootLeft={false}
+      overshootRight={false}
+      onSwipeableWillOpen={(direction) => {
+        if (didTriggerSwipeActionRef.current) return;
+        didTriggerSwipeActionRef.current = true;
+        if (direction === "left") onMove?.();
+        if (direction === "right") onDelete?.();
+        requestAnimationFrame(() => {
+          swipeableRef.current?.close();
+          didTriggerSwipeActionRef.current = false;
+        });
+      }}
+      renderLeftActions={() => (
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: colors.primarySoft,
+            borderRadius: radius.sm,
+            justifyContent: "center",
+            marginVertical: spacing.xs,
+            paddingHorizontal: spacing["4xl"],
+          }}
+        >
+          <Text variant="control" color="primary">이동</Text>
+        </View>
+      )}
+      renderRightActions={() => (
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: colors.danger,
+            borderRadius: radius.sm,
+            justifyContent: "center",
+            marginVertical: spacing.xs,
+            paddingHorizontal: spacing["4xl"],
+          }}
+        >
+          <Text variant="control" color="white">삭제</Text>
+        </View>
+      )}
+    >
+      {row}
+    </Swipeable>
   );
 }

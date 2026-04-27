@@ -77,7 +77,7 @@ export default function TrashScreen() {
         <Text style={{ fontSize: 17, fontWeight: "600", color: "#1a1a1a", marginLeft: 4 }}>최근 삭제됨</Text>
       </View>
 
-      <Text style={{ fontSize: 12, color: "#999999", marginHorizontal: 20, marginBottom: 12 }}>
+      <Text style={{ fontSize: 13, color: "#999999", marginHorizontal: 20, marginBottom: 12 }}>
         삭제 후 30일 이내 항목을 복원할 수 있어요.
       </Text>
 
@@ -95,7 +95,7 @@ export default function TrashScreen() {
           {/* Envelopes */}
           {envelopes.length > 0 && (
             <>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 8, marginBottom: 6, marginHorizontal: 20 }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 8, marginBottom: 6, marginHorizontal: 20 }}>
                 ENVELOPE
               </Text>
               <View style={{ marginHorizontal: 16, borderRadius: 12, backgroundColor: "#ffffff", overflow: "hidden" }}>
@@ -106,7 +106,7 @@ export default function TrashScreen() {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 15, color: "#1a1a1a" }}>{env.name}</Text>
-                      <Text style={{ fontSize: 12, color: "#999999", marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, color: "#999999", marginTop: 2 }}>
                         {formatDeletedAt(env.deleted_at!)} · {daysUntilExpiry(env.deleted_at!)}일 후 영구 삭제
                       </Text>
                     </View>
@@ -126,7 +126,7 @@ export default function TrashScreen() {
           {/* Papers */}
           {papers.length > 0 && (
             <>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 24, marginBottom: 6, marginHorizontal: 20 }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#999999", letterSpacing: 0.6, marginTop: 24, marginBottom: 6, marginHorizontal: 20 }}>
                 PAPER
               </Text>
               <View style={{ marginHorizontal: 16, borderRadius: 12, backgroundColor: "#ffffff", overflow: "hidden" }}>
@@ -139,7 +139,7 @@ export default function TrashScreen() {
                       <Text style={{ fontSize: 15, color: "#1a1a1a" }}>
                         {paper.name ?? "이름 없는 paper"}
                       </Text>
-                      <Text style={{ fontSize: 12, color: "#999999", marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, color: "#999999", marginTop: 2 }}>
                         {formatDeletedAt(paper.deleted_at!)} · {daysUntilExpiry(paper.deleted_at!)}일 후 영구 삭제
                       </Text>
                     </View>

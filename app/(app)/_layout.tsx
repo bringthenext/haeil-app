@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useSession } from "@/hooks/useSession";
+import { colors, fontFamily, fontSize } from "@/lib/tokens";
 
 const TAB_PATHS = ["/inbox", "/papers", "/schedule", "/me"];
 
@@ -49,14 +50,14 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#ffffff",
-          borderTopColor: "#e2e8f0",
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           height: 56 + insets.bottom,
           paddingBottom: insets.bottom,
         },
-        tabBarActiveTintColor: "#1D9E75",
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: "#94a3b8",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "500", fontFamily: "Pretendard-Medium" },
+        tabBarLabelStyle: { fontSize: fontSize.sm, fontWeight: "500", fontFamily: fontFamily.medium },
       }}
     >
       <Tabs.Screen

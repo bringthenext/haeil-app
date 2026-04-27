@@ -39,7 +39,7 @@ export function EnvelopeReorderSheet({ visible, envelopes, onReorder, onClose }:
 
           <Text
             style={{
-              fontSize: 11, fontWeight: "600", color: "#999",
+              fontSize: 13, fontWeight: "600", color: "#999",
               paddingHorizontal: 20, marginBottom: 4, letterSpacing: 0.3,
             }}
           >
@@ -47,7 +47,7 @@ export function EnvelopeReorderSheet({ visible, envelopes, onReorder, onClose }:
           </Text>
           <Text
             style={{
-              fontSize: 11, color: "#bbb",
+              fontSize: 13, color: "#999",
               paddingHorizontal: 20, marginBottom: 12,
             }}
           >

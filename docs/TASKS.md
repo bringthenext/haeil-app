@@ -20,9 +20,9 @@
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (핵심 인터랙션 완료, 세부 시나리오 검증 남음) |
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
-| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🚧 진행 중 |
+| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | ✅ 완료 |
 | T13 | 설정 화면 | ✅ 완료 |
-| T14 | 디자인 시스템화 | 🔜 T12 완료 후 별도 브랜치 |
+| T14 | 디자인 시스템화 | 🚧 진행 중 |
 | T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🔜 다음 (T15-1~4 세부 분리) |
 
 ---
@@ -291,8 +291,8 @@ select cron.schedule(
 
 | # | 작업 | 비고 |
 |---|---|---|
-| T14-1 | `lib/tokens.ts` — fontSize 스케일, 컬러 상수 정의 | tailwind 토큰과 동기화 |
-| T14-2 | `components/ui/Text.tsx` — size/weight/color prop 공통 Text | 기존 인라인 스타일 교체 |
-| T14-3 | `components/ui/Button.tsx` — variant(primary/ghost/danger) + size | 기존 Pressable 교체 |
-| T14-4 | 전체 컴포넌트 인라인 스타일 → 토큰/공통 컴포넌트 교체 | 충돌 최소화 위해 T12 후 진행 |
-| T14-5 | tailwind.config.js fontFamily/fontSize 토큰 완성 | |
+| T14-1 | `lib/tokens.ts` — fontSize 스케일, 컬러 상수 정의 | ✅ 1차 완료, tailwind 토큰과 동기화 |
+| T14-2 | `components/ui/Text.tsx` — size/weight/color prop 공통 Text | ✅ 1차 완료, Me/Paper 일부 적용 |
+| T14-3 | `components/ui/Button.tsx` — variant(primary/ghost/danger) + size | ✅ 1차 완료 |
+| T14-4 | 전체 컴포넌트 인라인 스타일 → 토큰/공통 컴포넌트 교체 | 🚧 진행 중 |
+| T14-5 | tailwind.config.js fontFamily/fontSize 토큰 완성 | ✅ 1차 완료 |
