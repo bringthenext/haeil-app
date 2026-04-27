@@ -106,7 +106,7 @@ export default function LoginScreen() {
       }
 
       // ── 경로 B: 기존 계정 로그인 ────────────────────────────────────────────
-      // 로그인 전 anon 세션 저장
+      // 로그인 전 anon 세션 저장 (signInWithEmail 이전에 캡처해야 함)
       const anonUserId = isAnon ? (session?.user?.id ?? null) : null;
       const anonAccessToken = isAnon
         ? ((await supabase.auth.getSession()).data.session?.access_token ?? null)
@@ -115,19 +115,30 @@ export default function LoginScreen() {
       const result = await signInWithEmail(e, p);
       if (result.error) { setError(result.error.message); return; }
 
-      // 마이그레이션 체크
-      if (anonUserId && anonAccessToken) {
-        const { anonHasData, realHasData } = await checkMigrationNeeded(anonUserId, anonAccessToken);
+      // signInWithEmail 결과에서 실계정 토큰 직접 추출 (싱글턴 타이밍 이슈 방지)
+      const realAccessToken = result.data.session?.access_token ?? null;
 
-        if (anonHasData && realHasData) {
-          // 4c: 양쪽 다 있음 → 모달로 선택
+      // 마이그레이션 체크
+      if (anonUserId && anonAccessToken && realAccessToken) {
+        try {
+          const { anonHasData, realHasData } = await checkMigrationNeeded(
+            anonUserId, anonAccessToken, realAccessToken,
+          );
+
+          if (anonHasData && realHasData) {
+            // 4c: 양쪽 다 있음 → 모달로 선택
+            setMigrationCtx({ anonUserId, anonAccessToken });
+            return;
+          } else if (anonHasData && !realHasData) {
+            // 4b: anon만 있음 → 조용히 이전
+            await runMigration(anonUserId, anonAccessToken, "keep-anon");
+          }
+          // 4a: anon 데이터 없음 → 그냥 진행
+        } catch {
+          // 체크 실패 → 안전하게 모달 표시 (데이터 손실 방지)
           setMigrationCtx({ anonUserId, anonAccessToken });
-          return; // 모달 콜백에서 navigate
-        } else if (anonHasData && !realHasData) {
-          // 4b: anon만 있음 → 조용히 이전
-          try { await runMigration(anonUserId, anonAccessToken, "keep-anon"); } catch { /* ignore */ }
+          return;
         }
-        // 4a: anon 데이터 없음 → 그냥 진행
       }
 
       await navigateAfterLogin();
