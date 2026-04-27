@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
@@ -90,7 +90,20 @@ export default function MeScreen() {
           <Text variant="meta" align="center">
             streak, wave 통계, 챌린지 기록은{"\n"}로그인 후 확인할 수 있습니다.
           </Text>
-          <Button onPress={() => router.push("/(auth)/login")} size="lg" style={{ marginTop: 8, paddingHorizontal: 28 }}>
+          <Button
+            onPress={() => {
+              Alert.alert(
+                "로그인 전 확인",
+                "비회원으로 작업한 내용은 로그인 후 사라질 수 있어요.\n계속 진행할까요?",
+                [
+                  { text: "취소", style: "cancel" },
+                  { text: "계속", onPress: () => router.push("/(auth)/login") },
+                ],
+              );
+            }}
+            size="lg"
+            style={{ marginTop: 8, paddingHorizontal: 28 }}
+          >
             로그인 / 회원가입
           </Button>
         </View>
