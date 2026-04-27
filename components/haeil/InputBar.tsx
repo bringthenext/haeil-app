@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text as RNText,
   TextInput,
   View,
@@ -349,21 +350,18 @@ export function InputBar({
         animationType="fade"
         onRequestClose={handlePickerCancel}
       >
-        <Pressable
-          style={{ flex: 1, backgroundColor: colors.overlaySoft, justifyContent: "flex-end" }}
-          onPress={handlePickerCancel}
-        >
-          <Pressable onPress={(event) => event.stopPropagation()}>
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderTopLeftRadius: radius.lg,
-                borderTopRightRadius: radius.lg,
-                paddingHorizontal: spacing["5xl"] - spacing.xxs,
-                paddingTop: spacing["3xl"],
-                paddingBottom: spacing["6xl"],
-              }}
-            >
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlaySoft }]} onPress={handlePickerCancel} />
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radius.lg,
+              borderTopRightRadius: radius.lg,
+              paddingHorizontal: spacing["5xl"] - spacing.xxs,
+              paddingTop: spacing["3xl"],
+              paddingBottom: spacing["6xl"],
+            }}
+          >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing["3xl"] }}>
                 <Pressable onPress={() => moveCalendarMonth(-1)} hitSlop={spacing.lg} style={{ padding: spacing.md }}>
                   <RNText style={{ color: colors.body, fontSize: 18 }}>‹</RNText>
@@ -426,8 +424,7 @@ export function InputBar({
                 })}
               </View>
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
       </Modal>
     </View>
   );

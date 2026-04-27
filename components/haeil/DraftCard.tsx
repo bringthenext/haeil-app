@@ -6,18 +6,10 @@ import { colors, fontSize, radius } from "@/lib/tokens";
 import type { Item } from "@/lib/types";
 import { InputPreviewRow } from "./InputPreviewRow";
 import { ItemRow } from "./ItemRow";
+import { SortMenuModal, SORT_OPTIONS } from "./SortMenuModal";
+import type { SortKey } from "./SortMenuModal";
 import { SortableList } from "./SortableList";
 import type { DragHandlers } from "./SortableList";
-
-type SortKey = "custom" | "created_desc" | "created_asc" | "deadline_desc" | "deadline_asc";
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "custom", label: "사용자 지정" },
-  { key: "created_asc", label: "생성일 ↑" },
-  { key: "created_desc", label: "생성일 ↓" },
-  { key: "deadline_asc", label: "마감일 ↑" },
-  { key: "deadline_desc", label: "마감일 ↓" },
-];
 
 const VISIBLE_LIMIT = 5;
 
@@ -189,8 +181,6 @@ export function DraftCard({
         backgroundColor: "#f8f8f4",
         paddingHorizontal: 12,
         paddingVertical: 10,
-        zIndex: showSortMenu ? 100 : 1,
-        elevation: showSortMenu ? 10 : 0,
       }}
     >
       {/* 헤더 */}
@@ -200,7 +190,7 @@ export function DraftCard({
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Pressable
-            onPress={() => setShowSortMenu((v) => !v)}
+            onPress={() => setShowSortMenu(true)}
             style={{ flexDirection: "row", alignItems: "center", gap: 2 }}
             hitSlop={8}
           >
@@ -215,48 +205,12 @@ export function DraftCard({
         </View>
       </View>
 
-      {/* 정렬 드롭다운 */}
-      {showSortMenu && (
-        <View
-          style={{
-            position: "absolute",
-            top: 30,
-            right: 0,
-            backgroundColor: "#fff",
-            borderRadius: 8,
-            borderWidth: 0.5,
-            borderColor: "#eee",
-            zIndex: 200,
-            elevation: 20,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 4,
-            minWidth: 120,
-          }}
-        >
-          {SORT_OPTIONS.map((opt, idx) => (
-            <Pressable
-              key={opt.key}
-              onPress={() => { setSort(opt.key); setShowSortMenu(false); }}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 9,
-                borderTopWidth: idx > 0 ? 0.5 : 0,
-                borderTopColor: "#f5f5f5",
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Text variant="meta" color={sort === opt.key ? "primary" : "body"}>
-                {opt.label}
-              </Text>
-              {sort === opt.key && <RNText style={{ color: colors.primary, fontSize: 13 }}>✓</RNText>}
-            </Pressable>
-          ))}
-        </View>
-      )}
+      <SortMenuModal
+        visible={showSortMenu}
+        currentKey={sort}
+        onSelect={setSort}
+        onClose={() => setShowSortMenu(false)}
+      />
 
       {/* 프로그레스 바 */}
       <View style={{ height: 0.5, backgroundColor: "#eee", borderRadius: 1, marginBottom: 10 }}>
