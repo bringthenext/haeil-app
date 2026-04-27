@@ -11,19 +11,19 @@
 |---|---|---|
 | T01 | 인증 | ✅ 완료 |
 | T02 | Inbox — Item 추가 (핵심) | ✅ 완료 |
-| T03 | Inbox — Item 분류 (Envelope로) | 🔜 다음 |
+| T03 | Inbox — Item 분류 (Envelope로) | ✅ 완료 |
 | T04 | Inbox — 완료 탭 | ✅ 완료 |
-| T05 | Papers — Envelope 관리 | 🔜 다음 |
+| T05 | Papers — Envelope 관리 | ✅ 완료 |
 | T06 | Papers — Draft Card 완료 (오늘날짜 rename + wave) | ✅ 완료 |
 | T07 | Papers — Paper 완료 (Wave 생성) (핵심) | ✅ 완료 |
 | T08 | Papers — 완료 탭 & 즐겨찾기 | ✅ 완료 |
-| T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
-| T10 | Schedule 화면 | 🚧 진행 중 (핵심 인터랙션 완료, 세부 시나리오 검증 남음) |
+| T09 | 새 Wave (즐겨찾기 복제) | ✅ 완료 |
+| T10 | Schedule 화면 | ✅ 완료 |
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
 | T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | ✅ 완료 |
 | T13 | 설정 화면 | ✅ 완료 |
-| T14 | 디자인 시스템화 | 🚧 진행 중 |
-| T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🔜 다음 (T15-1~4 세부 분리) |
+| T14 | 디자인 시스템화 | ✅ 완료 |
+| T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🚧 진행 중 (`feat/t15-sync`) |
 
 ---
 

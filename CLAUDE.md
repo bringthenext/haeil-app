@@ -72,13 +72,13 @@
 |---|---|---|
 | T01 | 인증 | ✅ |
 | T02 | Inbox — Item 추가 | ✅ |
-| T03 | Inbox — Item 분류 (Envelope로) | 🚧 |
+| T03 | Inbox — Item 분류 (Envelope로) | ✅ |
 | T04 | Inbox — 완료 탭 | ✅ |
-| T05 | Papers — Envelope 관리 | 🚧 |
+| T05 | Papers — Envelope 관리 | ✅ |
 | T06 | Papers — Draft Card 완료 | ✅ |
 | T07 | Papers — Paper 완료 (Wave 생성) | ✅ |
 | T08 | Papers — 완료 탭 & 즐겨찾기 | ✅ |
-| T09 | 새 Wave (즐겨찾기 복제) | 🚧 |
+| T09 | 새 Wave (즐겨찾기 복제) | ✅ |
 | T10 | Schedule 화면 | ✅ |
 | T11 | Me — Dashboard & Challenges | ✅ |
 | T12 | 반응형·RLS·softDelete | ✅ |
