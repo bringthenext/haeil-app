@@ -128,16 +128,24 @@ lib/
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (주간 캘린더 + 드래그 리오더 + 주간 스와이프 연동 완료) |
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
-| T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | 🚧 진행 중 |
+| T12 | 반응형 테스트 (모바일·태블릿·맥), RLS 검증, softDelete 등 마무리 | ✅ 완료 |
 | T13 | 설정 화면 (계정·로그아웃·탈퇴·한 주 시작·약관) | ✅ 완료 |
 | T14 | 디자인 시스템화 (타이포그래피 스케일 · 공통 컴포넌트 · 폰트 크기 상향) | 🔜 다음 |
+| T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🔜 다음 |
 
 ### 작업 순서
 - **1차** `feat/envelope-wave-schedule`: T03 · T05 · T09
 - **2차**: T10 · T11 · T12
 - **T14 주의**: T12 완료 후 별도 브랜치로 분리. T12와 병렬 작업 시 컴포넌트 파일 충돌 다수 발생 가능
+- **T15**: 설계 논의 필요 (anonymous 마이그레이션 충돌 정책, 오프라인 큐 전략)
 
-### 현재 진행 상황 (2026-04-26 기준)
+### 현재 진행 상황 (2026-04-27 기준)
+- T12 (반응형·RLS·softDelete): ✅ 완료, `feat/t12-polish` 브랜치 — PR/머지 대기
+  - Pretendard 폰트 번들링, 탭바·사이드바 lucide 아이콘 추가, safe area 하단 마진
+  - Papers 페이저 web 반응형 버그 수정 (onLayout 기반 contentWidth)
+  - 와이드→모바일 전환 라우팅 이슈 수정
+  - RLS 정책 검증 완료 (4개 테이블 `auth.uid() = user_id`)
+  - softDelete 정책: Item hard delete, Paper/Envelope soft delete + cascade + 복원 UI (설정 > 최근 삭제됨)
 - T13 (설정 화면): ✅ 완료 (main 머지됨)
 - T11 (Me Dashboard & Challenges): ✅ 완료 (main 머지됨)
 - Schedule 탭 (T10) 핵심 인터랙션 구현 완료:

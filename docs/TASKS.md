@@ -23,6 +23,7 @@
 | T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🚧 진행 중 |
 | T13 | 설정 화면 | ✅ 완료 |
 | T14 | 디자인 시스템화 | 🔜 T12 완료 후 별도 브랜치 |
+| T15 | 데이터 동기화 · 계정 마이그레이션 · 자동 정리 | 🔜 다음 (T15-1~4 세부 분리) |
 
 ---
 
@@ -213,12 +214,11 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_reason text;
 | # | 시나리오 | 검증 포인트 | 상태 |
 | --- | --- | --- | --- |
 | T12-0 | 첫 빌드 검증 | `tsc`, web static export, iOS simulator Debug, 실제 iPhone Release 직접 설치/실행 | ✅ |
-| T12-1 | 모바일 레이아웃 (< 768px) | 하단 탭바, 단일 컬럼, 콘텐츠 넘침 없음 | 🔲 |
-| T12-2 | 태블릿 레이아웃 (≥ 768px) | 좌측 사이드바(w-44) + 콘텐츠 영역 전환 확인 | 🔲 |
-| T12-3 | 맥 레이아웃 (≥ 1024px) | 좌측 사이드바(w-56) + 콘텐츠 영역 전환 확인 | 🔲 |
-| T12-4 | 모든 쿼리에 `user_id` 포함 | RLS 통과 여부 (다른 계정 데이터 접근 불가) | 🔲 |
-| T12-5 | 소프트 삭제 | 삭제 시 `deleted_at` 설정, 목록에서 제외 확인 | 🔲 |
-| T12-6 | 비로그인 → 로그인 시 데이터 연동 | 로컬 데이터 서버 마이그레이션 | 🔲 |
+| T12-1 | 모바일 레이아웃 (< 768px) | 하단 탭바 + 아이콘, 단일 컬럼, 콘텐츠 넘침 없음 | ✅ |
+| T12-2 | 태블릿 레이아웃 (≥ 768px) | 좌측 사이드바(w-44) + 아이콘, 콘텐츠 영역 전환 확인 | ✅ |
+| T12-3 | 맥 레이아웃 (≥ 1024px) | 좌측 사이드바(w-56) + 아이콘, 콘텐츠 영역 전환 확인 | ✅ |
+| T12-4 | RLS 검증 | 4개 테이블 RLS 활성화, `auth.uid() = user_id` 정책 확인 | ✅ |
+| T12-5 | 소프트 삭제 정책 확정 및 구현 | Item hard delete, Paper/Envelope soft delete + 복원 UI | ✅ |
 
 **T12-0 기록 (`codex/first-build`)**
 - `npx tsc --noEmit` 통과
@@ -233,27 +233,35 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_reason text;
 - Envelope: soft delete + cascade soft delete 하위 papers → 복원 시 함께 복원
 - Wave: 삭제 없음
 
-**T15. 30일 경과 soft-deleted 레코드 자동 영구 삭제 (Supabase pg_cron)**
+**T15. 데이터 동기화 / 계정 마이그레이션 / 자동 정리**
+**T15-1. anonymous → 실계정 데이터 마이그레이션**
+- 비로그인(anonymous auth) 상태에서 사용하다 로그인/회원가입 시 anonymous 계정 데이터를 실계정으로 이전
+- Supabase `linkIdentity` / `updateUser` 활용 또는 서버사이드 user_id 일괄 재귀 업데이트
+- 설계 포인트: anonymous uid → real uid로 envelopes/papers/items/waves 전부 `user_id` 교체
+- 충돌 정책: 실계정에 기존 데이터가 있으면 머지 or 덮어쓰기 선택 필요 (별도 논의)
+
+**T15-2. 오프라인 사용 → 온라인 연동**
+- 네트워크 없을 때 로컬 큐에 변경사항 적재, 온라인 복구 시 Supabase와 동기화
+- 충돌 해소 전략 (last-write-wins vs. manual merge) 별도 설계 필요
+- `@react-native-community/netinfo` 등으로 연결 상태 감지
+
+**T15-3. 30일 경과 soft-deleted 레코드 자동 영구 삭제 (Supabase pg_cron)**
 > FE 작업 아님 — Supabase 대시보드 > Database > Cron Jobs에서 설정
 
 ```sql
--- 매일 새벽 3시 실행 예시
 select cron.schedule(
   'purge-soft-deleted',
   '0 3 * * *',
   $$
-    -- soft-deleted papers/envelopes 영구 삭제
-    delete from papers where deleted_at < now() - interval '30 days';
+    delete from papers   where deleted_at < now() - interval '30 days';
     delete from envelopes where deleted_at < now() - interval '30 days';
-
-    -- 탈퇴 요청 후 30일 경과 계정 영구 삭제 (profiles.deletion_reason IS NOT NULL 기준)
-    -- auth.users 삭제는 Supabase admin API 또는 Edge Function 경유 필요
-    -- → Edge Function: supabase.auth.admin.deleteUser(userId) 호출
   $$
 );
 ```
 
-> **계정 삭제 주의**: `auth.users` 직접 삭제는 pg_cron SQL로 불가 — Supabase Edge Function에서 `supabase.auth.admin.deleteUser()` 호출해야 함. profiles 테이블의 `deletion_requested_at`(또는 `deleted_at`) 기준으로 30일 경과 유저를 조회 후 처리.
+**T15-4. 탈퇴 요청 후 30일 경과 계정 영구 삭제 (Supabase Edge Function)**
+> `auth.users` 직접 삭제는 pg_cron SQL로 불가 — Edge Function에서 `supabase.auth.admin.deleteUser()` 호출
+> `profiles.deletion_requested_at` 기준 30일 경과 유저 조회 후 처리
 
 ---
 
