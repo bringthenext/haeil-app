@@ -20,8 +20,9 @@
 | T09 | 새 Wave (즐겨찾기 복제) | 🔜 다음 |
 | T10 | Schedule 화면 | 🚧 진행 중 (핵심 인터랙션 완료, 세부 시나리오 검증 남음) |
 | T11 | Me — Dashboard & Challenges | ✅ 완료 |
-| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🚧 빌드 검증 완료, 세부 검증 남음 |
+| T12 | 반응형 테스트 · RLS 검증 · softDelete 등 마무리 | 🚧 진행 중 |
 | T13 | 설정 화면 | ✅ 완료 |
+| T14 | 디자인 시스템화 | 🔜 T12 완료 후 별도 브랜치 |
 
 ---
 
@@ -225,3 +226,65 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_reason text;
 - iOS simulator Debug 빌드/실행 통과
 - 실제 iPhone Release 빌드/설치/실행 통과. Release 앱은 JS bundle 포함이라 Metro 서버 없이 실행 가능
 - iOS 빌드를 위해 `react-native-worklets@0.7.4`로 고정 (`react-native-reanimated@4.2.1`과 호환)
+
+**T12-5 softDelete 확정 정책**
+- Item: hard delete (유저 직접 삭제 시 즉시 영구 삭제)
+- Paper: soft delete + 30일 보관 → 설정 > 최근 삭제됨에서 복원 가능
+- Envelope: soft delete + cascade soft delete 하위 papers → 복원 시 함께 복원
+- Wave: 삭제 없음
+
+**T15. 30일 경과 soft-deleted 레코드 자동 영구 삭제 (Supabase pg_cron)**
+> FE 작업 아님 — Supabase 대시보드 > Database > Cron Jobs에서 설정
+
+```sql
+-- 매일 새벽 3시 실행 예시
+select cron.schedule(
+  'purge-soft-deleted',
+  '0 3 * * *',
+  $$
+    -- soft-deleted papers/envelopes 영구 삭제
+    delete from papers where deleted_at < now() - interval '30 days';
+    delete from envelopes where deleted_at < now() - interval '30 days';
+
+    -- 탈퇴 요청 후 30일 경과 계정 영구 삭제 (profiles.deletion_reason IS NOT NULL 기준)
+    -- auth.users 삭제는 Supabase admin API 또는 Edge Function 경유 필요
+    -- → Edge Function: supabase.auth.admin.deleteUser(userId) 호출
+  $$
+);
+```
+
+> **계정 삭제 주의**: `auth.users` 직접 삭제는 pg_cron SQL로 불가 — Supabase Edge Function에서 `supabase.auth.admin.deleteUser()` 호출해야 함. profiles 테이블의 `deletion_requested_at`(또는 `deleted_at`) 기준으로 30일 경과 유저를 조회 후 처리.
+
+---
+
+### T14. 디자인 시스템화
+
+> **브랜치**: T12 완료 후 `feat/design-system` 별도 분리  
+> T12와 병렬 작업 시 컴포넌트 파일 충돌 다수 발생 가능 — 반드시 T12 머지 후 따기
+
+**배경**
+- 현재 `fontSize: 9~17` 인라인 스타일 + `text-xs` / `text-sm` tailwind 클래스 혼재
+- 전반적인 폰트 크기가 작음 (본문 14px, 서브 11~12px 위주) → 한 단계 상향 필요
+- 공통 Button / Text 컴포넌트 없음, 색상도 `#1a1a1a` 직접 박힘
+- 폰트: Pretendard 적용 완료 (T12에서), 시스템화는 T14에서
+
+**타이포그래피 스케일 (목표)**
+
+| 토큰 | 현재 주요값 | 목표값 | 용도 |
+|---|---|---|---|
+| `xs` | 9~10 | 11 | 범례, 레이블 |
+| `sm` | 11~12 | 13 | 메타, 타임스탬프 |
+| `base` | 13~14 | 15 | 본문, 아이템 |
+| `md` | 15~16 | 17 | 섹션 헤더 |
+| `lg` | 17 | 19 | 카드 제목 |
+| `xl`+ | 22~36 | 유지 | 대시보드 숫자 |
+
+**작업 범위**
+
+| # | 작업 | 비고 |
+|---|---|---|
+| T14-1 | `lib/tokens.ts` — fontSize 스케일, 컬러 상수 정의 | tailwind 토큰과 동기화 |
+| T14-2 | `components/ui/Text.tsx` — size/weight/color prop 공통 Text | 기존 인라인 스타일 교체 |
+| T14-3 | `components/ui/Button.tsx` — variant(primary/ghost/danger) + size | 기존 Pressable 교체 |
+| T14-4 | 전체 컴포넌트 인라인 스타일 → 토큰/공통 컴포넌트 교체 | 충돌 최소화 위해 T12 후 진행 |
+| T14-5 | tailwind.config.js fontFamily/fontSize 토큰 완성 | |

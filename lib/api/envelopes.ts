@@ -61,11 +61,51 @@ export async function updateEnvelopeOrders(
   if (failed?.error) throw failed.error;
 }
 
-/** 봉투 소프트 삭제 */
+/**
+ * 봉투 소프트 삭제 — 하위 papers도 cascade soft delete.
+ * 복원 시 envelope + 그 envelope_id를 가진 soft-deleted papers를 함께 살린다.
+ */
 export async function deleteEnvelope(id: string): Promise<void> {
-  const { error } = await supabase
+  const now = new Date().toISOString();
+  const { error: envError } = await supabase
     .from("envelopes")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now })
     .eq("id", id);
+  if (envError) throw envError;
+
+  const { error: papersError } = await supabase
+    .from("papers")
+    .update({ deleted_at: now })
+    .eq("envelope_id", id)
+    .is("deleted_at", null);
+  if (papersError) throw papersError;
+}
+
+/** 봉투 복원 — envelope + 하위 soft-deleted papers 함께 복원 */
+export async function restoreEnvelope(id: string): Promise<void> {
+  const { error: envError } = await supabase
+    .from("envelopes")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  if (envError) throw envError;
+
+  const { error: papersError } = await supabase
+    .from("papers")
+    .update({ deleted_at: null })
+    .eq("envelope_id", id)
+    .not("deleted_at", "is", null);
+  if (papersError) throw papersError;
+}
+
+/** 삭제된 봉투 목록 (30일 이내) */
+export async function getDeletedEnvelopes(): Promise<Envelope[]> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("envelopes")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .gte("deleted_at", cutoff)
+    .order("deleted_at", { ascending: false });
   if (error) throw error;
+  return (data ?? []) as Envelope[];
 }

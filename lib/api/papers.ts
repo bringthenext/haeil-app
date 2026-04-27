@@ -111,3 +111,39 @@ export async function deletePaper(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+/** Paper 복원 */
+export async function restorePaper(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("papers")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** 삭제된 paper 목록 (30일 이내, envelope cascade로 삭제된 것 제외) */
+export async function getDeletedPapers(): Promise<Paper[]> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // envelope가 살아있는 paper만 독립적으로 복원 가능
+  const { data: deletedEnvelopes } = await supabase
+    .from("envelopes")
+    .select("id")
+    .not("deleted_at", "is", null);
+  const deletedEnvelopeIds = (deletedEnvelopes ?? []).map((e) => e.id as string);
+
+  const query = supabase
+    .from("papers")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .gte("deleted_at", cutoff)
+    .order("deleted_at", { ascending: false });
+
+  // envelope가 삭제된 경우 → envelope 복원 화면에서 함께 처리되므로 여기선 제외
+  const { data, error } = deletedEnvelopeIds.length > 0
+    ? await query.not("envelope_id", "in", `(${deletedEnvelopeIds.join(",")})`)
+    : await query;
+
+  if (error) throw error;
+  return (data ?? []) as Paper[];
+}
