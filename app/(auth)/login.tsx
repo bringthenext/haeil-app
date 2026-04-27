@@ -12,8 +12,10 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+import { MigrationChoiceModal } from "@/components/haeil/MigrationChoiceModal";
 
 import { signInAnonymously, signInWithApple, signInWithEmail, signUp } from "@/lib/api/auth";
+import { checkMigrationNeeded, runMigration, type MigrationPolicy } from "@/lib/api/migration";
 import { cancelDeletion, updateUsername } from "@/lib/api/profile";
 import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabase";
@@ -33,8 +35,15 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
+  const [migrationLoading, setMigrationLoading] = useState(false);
 
   const [error, setError] = useState("");
+
+  // T15-1: 마이그레이션 모달 상태
+  const [migrationCtx, setMigrationCtx] = useState<{
+    anonUserId: string;
+    anonAccessToken: string;
+  } | null>(null);
 
   // 실제 계정 세션이 있으면 inbox로 이동. anonymous 세션은 계정 로그인 UI를 보여준다.
   useEffect(() => {
@@ -42,6 +51,33 @@ export default function LoginScreen() {
       router.replace("/(app)/inbox");
     }
   }, [session, sessionLoading]);
+
+  async function navigateAfterLogin() {
+    const deletionState = await cancelDeletion();
+    if (deletionState === "expired") {
+      setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
+      return;
+    }
+    Toast.show({
+      type: "success",
+      text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다.",
+    });
+    router.replace("/(app)/inbox");
+  }
+
+  async function handleMigrationChoice(policy: MigrationPolicy) {
+    if (!migrationCtx) return;
+    setMigrationLoading(true);
+    try {
+      await runMigration(migrationCtx.anonUserId, migrationCtx.anonAccessToken, policy);
+    } catch {
+      // 마이그레이션 실패는 무시하고 진행 (데이터 손실 없이 실계정으로)
+    } finally {
+      setMigrationCtx(null);
+      setMigrationLoading(false);
+      await navigateAfterLogin();
+    }
+  }
 
   const handleSubmit = async () => {
     const e = email.trim();
@@ -51,27 +87,50 @@ export default function LoginScreen() {
     setLoading(true);
     setError("");
     try {
-      const result =
-        mode === "signin"
-          ? await signInWithEmail(e, p)
-          : await signUp(e, p);
-      if (result.error) {
-        setError(result.error.message);
-      } else {
-        if (mode === "signup" && name.trim()) {
-          await updateUsername(name.trim());
+      const isAnon = session?.user?.is_anonymous ?? false;
+
+      // ── 경로 A: 신규 가입 ────────────────────────────────────────────────────
+      if (mode === "signup") {
+        if (isAnon) {
+          // anonymous → 실계정 업그레이드: user_id 그대로 유지
+          const { error: updateError } = await supabase.auth.updateUser({ email: e, password: p });
+          if (updateError) { setError(updateError.message); return; }
+        } else {
+          const result = await signUp(e, p);
+          if (result.error) { setError(result.error.message); return; }
         }
-        const deletionState = await cancelDeletion();
-        if (deletionState === "expired") {
-          setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
-          return;
-        }
-        Toast.show({
-          type: "success",
-          text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다.",
-        });
+        if (name.trim()) await updateUsername(name.trim());
+        Toast.show({ type: "success", text1: "회원가입이 완료되었습니다." });
         router.replace("/(app)/inbox");
+        return;
       }
+
+      // ── 경로 B: 기존 계정 로그인 ────────────────────────────────────────────
+      // 로그인 전 anon 세션 저장
+      const anonUserId = isAnon ? (session?.user?.id ?? null) : null;
+      const anonAccessToken = isAnon
+        ? ((await supabase.auth.getSession()).data.session?.access_token ?? null)
+        : null;
+
+      const result = await signInWithEmail(e, p);
+      if (result.error) { setError(result.error.message); return; }
+
+      // 마이그레이션 체크
+      if (anonUserId && anonAccessToken) {
+        const { anonHasData, realHasData } = await checkMigrationNeeded(anonUserId, anonAccessToken);
+
+        if (anonHasData && realHasData) {
+          // 4c: 양쪽 다 있음 → 모달로 선택
+          setMigrationCtx({ anonUserId, anonAccessToken });
+          return; // 모달 콜백에서 navigate
+        } else if (anonHasData && !realHasData) {
+          // 4b: anon만 있음 → 조용히 이전
+          try { await runMigration(anonUserId, anonAccessToken, "keep-anon"); } catch { /* ignore */ }
+        }
+        // 4a: anon 데이터 없음 → 그냥 진행
+      }
+
+      await navigateAfterLogin();
     } catch {
       setError("오류가 발생했어요. 다시 시도해주세요.");
     } finally {
@@ -319,6 +378,14 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* T15-1: 마이그레이션 선택 모달 */}
+      <MigrationChoiceModal
+        visible={migrationCtx !== null}
+        loading={migrationLoading}
+        onKeepReal={() => void handleMigrationChoice("keep-real")}
+        onKeepAnon={() => void handleMigrationChoice("keep-anon")}
+      />
     </KeyboardAvoidingView>
   );
 }
