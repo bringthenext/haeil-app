@@ -257,13 +257,41 @@ lib/
 - `npx expo export --platform web` : 웹 static export (`dist/`)
 - `npx expo run:ios --configuration Release --device <UDID>` : 실제 iPhone용 Release 빌드. Expo 래퍼 설치 단계가 pair record 문제로 실패하면 생성된 `Release-iphoneos/app.app`을 `xcrun devicectl device install app --device <UDID> <app.app>`로 직접 설치.
 
-## Git 브랜치 작업 순서
+## Git 브랜치 & PR 규칙
 
-**새 브랜치를 딸 때 반드시 이 순서로:**
+### 브랜치 네이밍
+| 용도 | 패턴 | 예시 |
+|---|---|---|
+| 태스크 단위 기능 | `feat/t{번호}-{키워드}` | `feat/t15-sync` |
+| 버그 수정 | `fix/{키워드}` | `fix/drag-reorder` |
+| 디자인·스타일 | `feat/design-{키워드}` | `feat/design-system` |
+| 문서·설정 | `chore/{키워드}` | `chore/claude-md` |
+
+> `codex/` 접두사는 Codex 자동 생성 브랜치 전용 — 수동 작업 브랜치엔 사용하지 않는다.
+
+### 새 브랜치 생성 순서 (반드시 지키기)
 ```bash
 git checkout main
-git pull origin main   # ← 이걸 빠뜨리면 GitHub에 머지된 최신 코드 없이 브랜치가 생김
-git checkout -b feat/xxx
+git pull origin main   # ← PR 머지 후 로컬 main은 자동 업데이트 안 됨
+git checkout -b feat/tXX-키워드
 ```
 
-GitHub에서 PR 머지 후 로컬 main은 자동으로 업데이트되지 않는다. `git pull origin main` 없이 바로 브랜치를 따면 머지된 커밋이 빠진 낡은 base에서 시작하게 된다.
+### PR 제목 규칙
+```
+feat: T{번호} {한 줄 요약}
+fix:  {한 줄 요약}
+chore: {한 줄 요약}
+```
+
+### PR 본문 구성
+```
+## Summary
+- 변경 내용 bullet (무엇을, 왜)
+
+## Test plan
+- [ ] 검증 항목 체크리스트
+```
+
+### 기타
+- PR 단위는 태스크(T번호) 기준. 하나의 태스크가 너무 크면 T15-1 / T15-2 처럼 서브태스크로 분리해서 PR 쪼개기.
+- 머지 후 다음 브랜치를 딸 때는 반드시 `git fetch origin main && git rebase origin/main` 또는 위 생성 순서를 따른다.
