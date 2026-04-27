@@ -390,7 +390,7 @@ export function DraftCard({
       {/* 빈 상태 */}
       {isEmpty && !onAddItem && (
         <View style={{ paddingVertical: 12 }}>
-          <Text variant="caption" color="disabled" align="center">
+          <Text variant="meta" color="disabled" align="center">
             아직 항목이 없어요.
           </Text>
         </View>
