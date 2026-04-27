@@ -1,11 +1,14 @@
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, usePathname, useRouter } from "expo-router";
 import { Calendar, Inbox, Layers, User } from "lucide-react-native";
+import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useSession } from "@/hooks/useSession";
+
+const TAB_PATHS = ["/inbox", "/papers", "/schedule", "/me"];
 
 export const TABS = [
   { name: "inbox/index", label: "inbox", icon: "inbox" },
@@ -18,6 +21,18 @@ export default function AppLayout() {
   const { session, loading } = useSession();
   const { isMobile } = useBreakpoint();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
+  const prevIsMobile = useRef(isMobile);
+
+  // 와이드→모바일 전환 시 탭 경로가 아니면 inbox로 이동
+  useEffect(() => {
+    if (!prevIsMobile.current && isMobile) {
+      const isTabRoute = TAB_PATHS.some((p) => pathname.startsWith(p));
+      if (!isTabRoute) router.replace("/(app)/inbox");
+    }
+    prevIsMobile.current = isMobile;
+  }, [isMobile]);
 
   if (!loading && !session) return <Redirect href="/" />;
 

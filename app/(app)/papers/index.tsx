@@ -400,7 +400,6 @@ export default function PapersScreen() {
     <SafeAreaView
       style={{ flex: 1, backgroundColor: "#fff" }}
       edges={["top"]}
-      onLayout={(e) => setContentWidth(e.nativeEvent.layout.width)}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -505,7 +504,10 @@ export default function PapersScreen() {
             onMomentumScrollEnd={(e) => handlePageSwipe(e.nativeEvent.contentOffset.x)}
             style={{ flex: 1 }}
             scrollEnabled={!isDragging}
-            onLayout={(e) => { pagerHeight.current = e.nativeEvent.layout.height; }}
+            onLayout={(e) => {
+              pagerHeight.current = e.nativeEvent.layout.height;
+              setContentWidth(e.nativeEvent.layout.width);
+            }}
           >
             {envelopes.map((env) => {
               const draft = draftPaperForEnv(env.id);
