@@ -155,7 +155,7 @@ export async function updateItemOrders(
 export async function deleteItem(id: string): Promise<void> {
   const { error } = await supabase
     .from("items")
-    .update({ deleted_at: new Date().toISOString() })
+    .delete()
     .eq("id", id);
   if (error) throw error;
 }

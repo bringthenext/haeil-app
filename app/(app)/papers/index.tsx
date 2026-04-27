@@ -10,7 +10,6 @@ import {
   ScrollView,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -55,7 +54,7 @@ function makeOptimistic(
 
 export default function PapersScreen() {
   const { userId } = useSession();
-  const { width } = useWindowDimensions();
+  const [contentWidth, setContentWidth] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
   const pagerHeight = useRef(0);
 
@@ -153,12 +152,12 @@ export default function PapersScreen() {
   useEffect(() => {
     const index = envelopes.findIndex((e) => e.id === selectedEnvId);
     if (index >= 0 && pagerRef.current) {
-      pagerRef.current.scrollTo({ x: index * width, animated: false });
+      pagerRef.current.scrollTo({ x: index * contentWidth, animated: false });
     }
-  }, [selectedEnvId, envelopes, width]);
+  }, [selectedEnvId, envelopes, contentWidth]);
 
   function handlePageSwipe(x: number) {
-    const index = Math.round(x / width);
+    const index = Math.round(x / contentWidth);
     const env = envelopes[index];
     if (env && env.id !== selectedEnvId) {
       setSelectedEnvId(env.id);
@@ -398,7 +397,10 @@ export default function PapersScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#fff" }}
+      edges={["top"]}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -502,7 +504,10 @@ export default function PapersScreen() {
             onMomentumScrollEnd={(e) => handlePageSwipe(e.nativeEvent.contentOffset.x)}
             style={{ flex: 1 }}
             scrollEnabled={!isDragging}
-            onLayout={(e) => { pagerHeight.current = e.nativeEvent.layout.height; }}
+            onLayout={(e) => {
+              pagerHeight.current = e.nativeEvent.layout.height;
+              setContentWidth(e.nativeEvent.layout.width);
+            }}
           >
             {envelopes.map((env) => {
               const draft = draftPaperForEnv(env.id);
@@ -520,7 +525,7 @@ export default function PapersScreen() {
               };
 
               return (
-                <View key={env.id} style={{ width }}>
+                <View key={env.id} style={{ width: contentWidth }}>
                   <ScrollView
                     ref={(ref) => { envScrollRefs.current.set(env.id, ref); }}
                     keyboardShouldPersistTaps="handled"

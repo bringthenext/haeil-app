@@ -1,11 +1,15 @@
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, usePathname, useRouter } from "expo-router";
+import { Calendar, Inbox, Layers, User } from "lucide-react-native";
+import { useEffect, useRef } from "react";
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useSession } from "@/hooks/useSession";
 
-// 탭 정의
+const TAB_PATHS = ["/inbox", "/papers", "/schedule", "/me"];
+
 export const TABS = [
   { name: "inbox/index", label: "inbox", icon: "inbox" },
   { name: "papers/index", label: "papers", icon: "layers" },
@@ -16,20 +20,30 @@ export const TABS = [
 export default function AppLayout() {
   const { session, loading } = useSession();
   const { isMobile } = useBreakpoint();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
+  const prevIsMobile = useRef(isMobile);
+
+  // 와이드→모바일 전환 시 탭 경로가 아니면 inbox로 이동
+  useEffect(() => {
+    if (!prevIsMobile.current && isMobile) {
+      const isTabRoute = TAB_PATHS.some((p) => pathname.startsWith(p));
+      if (!isTabRoute) router.replace("/(app)/inbox");
+    }
+    prevIsMobile.current = isMobile;
+  }, [isMobile]);
 
   if (!loading && !session) return <Redirect href="/" />;
 
-  // 태블릿/데스크탑: 사이드바 레이아웃
   if (!isMobile) {
     return (
       <View className="flex-1 flex-row bg-background">
         <Sidebar />
-        {/* 콘텐츠 영역은 Sidebar 내 Slot이 처리 */}
       </View>
     );
   }
 
-  // 모바일: 하단 탭바
   return (
     <Tabs
       screenOptions={{
@@ -37,21 +51,47 @@ export default function AppLayout() {
         tabBarStyle: {
           backgroundColor: "#ffffff",
           borderTopColor: "#e2e8f0",
-          height: 56,
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
         },
         tabBarActiveTintColor: "#1D9E75",
         tabBarInactiveTintColor: "#94a3b8",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "500", fontFamily: "Pretendard-Medium" },
       }}
     >
-      <Tabs.Screen name="inbox/index" options={{ title: "inbox" }} />
-      <Tabs.Screen name="papers/index" options={{ title: "papers" }} />
-      <Tabs.Screen name="schedule/index" options={{ title: "schedule" }} />
-      <Tabs.Screen name="me/index" options={{ title: "me" }} />
+      <Tabs.Screen
+        name="inbox/index"
+        options={{
+          title: "inbox",
+          tabBarIcon: ({ color, size }) => <Inbox size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="papers/index"
+        options={{
+          title: "papers",
+          tabBarIcon: ({ color, size }) => <Layers size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="schedule/index"
+        options={{
+          title: "schedule",
+          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="me/index"
+        options={{
+          title: "me",
+          tabBarIcon: ({ color, size }) => <User size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
       <Tabs.Screen name="settings/index" options={{ href: null }} />
       <Tabs.Screen name="settings/terms" options={{ href: null }} />
       <Tabs.Screen name="settings/privacy" options={{ href: null }} />
       <Tabs.Screen name="settings/licenses" options={{ href: null }} />
+      <Tabs.Screen name="settings/trash" options={{ href: null }} />
     </Tabs>
   );
 }

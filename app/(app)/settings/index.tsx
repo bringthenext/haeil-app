@@ -197,6 +197,12 @@ export default function SettingsScreen() {
           )}
         </Card>
 
+        {/* 데이터 관리 */}
+        <SectionLabel>데이터 관리</SectionLabel>
+        <Card>
+          <SettingRow label="최근 삭제됨" onPress={() => router.push("/(app)/settings/trash")} />
+        </Card>
+
         {/* 앱 설정 */}
         <SectionLabel>앱 설정</SectionLabel>
         <Card>

@@ -4,6 +4,13 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Pretendard-Regular"],
+        "pretendard-regular": ["Pretendard-Regular"],
+        "pretendard-medium": ["Pretendard-Medium"],
+        "pretendard-semibold": ["Pretendard-SemiBold"],
+        "pretendard-bold": ["Pretendard-Bold"],
+      },
       colors: {
         primary: "#1D9E75",
         "primary-foreground": "#ffffff",
