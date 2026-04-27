@@ -1,7 +1,8 @@
 import * as AuthSession from "expo-auth-session";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,14 +24,21 @@ import { supabase } from "@/lib/supabase";
 // OAuth 세션 완료 처리 (iOS)
 WebBrowser.maybeCompleteAuthSession();
 
+const HAS_LAUNCHED_KEY = "haeil.hasLaunched";
+
+export async function markLaunched() {
+  await AsyncStorage.setItem(HAS_LAUNCHED_KEY, "1");
+}
+
 export default function LoginScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const { session, loading: sessionLoading } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -45,12 +53,15 @@ export default function LoginScreen() {
     anonAccessToken: string;
   } | null>(null);
 
-  // 세션이 있으면 inbox로 이동. settings 등에서 명시적으로 push해 온 경우엔 리다이렉트하지 않음.
+  // 한번이라도 로그인한 적 있고 세션도 있으면 inbox로 바로 이동.
+  // from="me" 파라미터가 있으면 설정 등에서 명시적으로 진입한 것이므로 리다이렉트 생략.
   useEffect(() => {
-    if (!sessionLoading && session && !router.canGoBack()) {
-      router.replace("/(app)/inbox");
-    }
-  }, [session, sessionLoading]);
+    if (sessionLoading || from) return;
+    if (!session) return;
+    AsyncStorage.getItem(HAS_LAUNCHED_KEY).then((v) => {
+      if (v === "1") router.replace("/(app)/inbox");
+    });
+  }, [session, sessionLoading, from]);
 
   async function navigateAfterLogin() {
     const deletionState = await cancelDeletion();
@@ -58,6 +69,7 @@ export default function LoginScreen() {
       setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
       return;
     }
+    await markLaunched();
     Toast.show({
       type: "success",
       text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다.",
@@ -184,6 +196,7 @@ export default function LoginScreen() {
           });
           if (sessionError) throw sessionError;
           const restored = await cancelDeletion();
+          await markLaunched();
           Toast.show({ type: "success", text1: restored ? "계정이 활성화되었습니다." : "로그인에 성공했습니다." });
           router.replace("/(app)/inbox");
         } else {
@@ -202,6 +215,7 @@ export default function LoginScreen() {
               setError("탈퇴 처리된 계정이에요. 새 계정으로 가입해주세요.");
               return;
             }
+            await markLaunched();
             Toast.show({ type: "success", text1: deletionState === "restored" ? "계정이 활성화되었습니다." : "로그인에 성공했습니다." });
             router.replace("/(app)/inbox");
           }
@@ -236,6 +250,7 @@ export default function LoginScreen() {
       if (err) {
         setError(err.message);
       } else {
+        await markLaunched();
         Toast.show({ type: "success", text1: "비회원으로 시작합니다." });
         router.replace("/(app)/inbox");
       }

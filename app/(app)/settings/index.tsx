@@ -158,7 +158,7 @@ export default function SettingsScreen() {
         <SectionLabel>계정</SectionLabel>
         <Card>
           {isAnonymous ? (
-            <SettingRow label="로그인 / 회원가입" onPress={() => router.push("/(auth)/login")} />
+            <SettingRow label="로그인 / 회원가입" onPress={() => router.push({ pathname: "/(auth)/login", params: { from: "settings" } })} />
           ) : (
             <>
               {/* 이름 */}

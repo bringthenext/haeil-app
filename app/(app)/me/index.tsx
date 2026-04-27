@@ -97,7 +97,7 @@ export default function MeScreen() {
                 "비회원으로 작업한 내용은 로그인 후 사라질 수 있어요.\n계속 진행할까요?",
                 [
                   { text: "취소", style: "cancel" },
-                  { text: "계속", onPress: () => router.push("/(auth)/login") },
+                  { text: "계속", onPress: () => router.push({ pathname: "/(auth)/login", params: { from: "me" } }) },
                 ],
               );
             }}
